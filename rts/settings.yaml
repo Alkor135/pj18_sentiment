@@ -1,0 +1,57 @@
+# rts/settings.yaml
+# Единая конфигурация тикера RTS для двух стратегий pj17 (embedding + sentiment).
+# Секции common/embedding/sentiment/combined читаются через rts/shared/config.py:
+# каждая специфичная секция «накрывает» одноимённые ключи из common.
+
+common:
+  ticker: 'RTS'  # Важно: тикер в верхнем регистре для корректного формирования имён БД и Markdown
+  ticker_lc: 'rts'  # Важно: тикер в нижнем регистре для формирования путей к файлам и папкам
+  ticker_close: 'RIM6'               # Фьючерс для закрытия позиции (trade)
+  ticker_open: 'RIM6'                # Фьючерс для открытия позиции (trade)
+  quantity_test: 1                   # Количество контрактов для бэктеста и аналитики
+  notional_capital: 90000            # Условный капитал для QuantStats отчёта
+
+  # Выбор новостей по провайдеру
+  provider: 'investing_prime_interfax'  # Новостные провайдеры: 'investing_prime_interfax' или 'prime_interfax'
+
+  time_start: '21:00:00'  # Начало дневной свечи для формирования Markdown и расчета Equity (время предыдущей торговой сессии)
+  time_end: '20:59:59'  # Конец дневной свечи для формирования Markdown и расчета Equity (время текущей торговой сессии)
+  num_mds: 200                       # Последних интервалов (дней) для markdown
+  num_dbs: 8                         # Последних файлов БД новостей для обработки
+  start_date_download_minutes: '2025-06-24'  # Дата, с которой начинается загрузка минутных данных
+
+  md_path: 'C:/Users/Alkor/gd/md_rss_all_oil_gaz'  # Путь для сохранения Markdown файлов с новостями
+  db_news_dir: 'C:/Users/Alkor/gd/db_rss'  # Папка где хранятся БД с новостями
+  path_db_minute: 'C:/Users/Alkor/gd/data_quote_db/{ticker}_futures_minute_2025.db' # Путь к минутной БД (используется в download_minutes_to_db.py)
+  path_db_day:    'C:/Users/Alkor/gd/data_quote_db/{ticker}_futures_day_2025_21-00.db' # Путь к дневной БД (используется в convert_minutes_to_days.py)
+  # CSV с минутами от QUIK lua-экспортёра (trade/quik_export_minutes.lua)
+  quik_csv_path: 'C:/Users/Alkor/VSCode/pj18_sentiment/trade/quik_export/minutes.csv'
+
+sentiment_gemma:  # Конфигурация для sentiment стратегии (используется в sentiment_group_stats.py, sentiment_backtest.py, sentiment_to_predict.py)
+  sentiment_model: 'gemma3:12b'  # Модель для анализа сентимента, например 'gemma3:12b'
+  sentiment_output_pkl: 'C:/Users/Alkor/VSCode/pj18_sentiment/{ticker_lc}/sentiment_gemma/sentiment_scores.pkl'  # Файл для сохранения рассчитанных сентимент-скороров (используется в sentiment_to_predict.py)
+  predict_path: 'C:/Users/Alkor/gd/predict_ai_sentiment/{ticker_lc}_sentiment_gemma'  # Путь для сохранения предсказаний sentiment модели (sentiment_to_predict.py)
+
+  # Окно дат для sentiment_group_stats.py
+  stats_date_from: '2025-09-01'  # Дата начала периода для анализа групповой статистики сентимента (формат 'YYYY-MM-DD')
+  stats_date_to: '2027-01-01'  # Дата окончания периода для анализа групповой статистики сентимента (формат 'YYYY-MM-DD')
+
+  # Окно дат для sentiment_backtest.py
+  backtest_date_from: '2025-09-01'  # Дата начала тестового периода для sentiment_backtest.py (формат 'YYYY-MM-DD')
+  backtest_date_to: '2027-01-01'  # Дата окончания тестового периода для sentiment_backtest.py (формат 'YYYY-MM-DD')
+
+sentiment_qwen:  # Конфигурация для sentiment стратегии (используется в sentiment_group_stats.py, sentiment_backtest.py, sentiment_to_predict.py)
+  sentiment_model: 'qwen2.5:14b'  # Модель для анализа сентимента, например 'qwen2.5:14b' или 'qwen2.5:32b'
+  sentiment_output_pkl: 'C:/Users/Alkor/VSCode/pj18_sentiment/{ticker_lc}/sentiment_qwen/sentiment_scores.pkl'  # Файл для сохранения рассчитанных сентимент-скороров (используется в sentiment_to_predict.py)
+  predict_path: 'C:/Users/Alkor/gd/predict_ai_sentiment/{ticker_lc}_sentiment_qwen'  # Путь для сохранения предсказаний sentiment модели (sentiment_to_predict.py)
+
+  # Окно дат для sentiment_group_stats.py
+  stats_date_from: '2025-09-01'  # Дата начала периода для анализа групповой статистики сентимента (формат 'YYYY-MM-DD')
+  stats_date_to: '2027-01-01'  # Дата окончания периода для анализа групповой статистики сентимента (формат 'YYYY-MM-DD')
+
+  # Окно дат для sentiment_backtest.py
+  backtest_date_from: '2025-09-01'  # Дата начала тестового периода для sentiment_backtest.py (формат 'YYYY-MM-DD')
+  backtest_date_to: '2027-01-01'  # Дата окончания тестового периода для sentiment_backtest.py (формат 'YYYY-MM-DD')
+
+combined:  # Конфигурация для combined стратегии (используется в combined_to_predict.py)
+  predict_path: 'C:/Users/Alkor/gd/predict_ai_sentiment/{ticker_lc}_combined'  # Путь для сохранения предсказаний combined модели (combined_to_predict.py)

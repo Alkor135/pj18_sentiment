@@ -1,0 +1,22 @@
+# Правила для RTS sentiment_qwen backtest.
+#
+# Правила матчатся сверху вниз, по первому совпадению.
+# action: follow — торгуем по знаку sentiment (LONG если >0, SHORT если <0)
+# action: invert — инвертируем (SHORT если >0, LONG если <0)
+# action: skip   — не торгуем
+#
+# Диапазон, не покрытый ни одним правилом, — пропускается (эквивалент skip).
+# Можно свободно добавлять, удалять и переставлять строки.
+#
+# Ниже — стартовая конфигурация для qwen2.5:14b.
+
+# rules:
+#   - {min: -10, max: -6, action: follow}
+#   - {min: -5,  max: -3, action: invert}
+#   - {min: -2,  max:  2, action: follow}
+#   - {min:  3,  max:  5, action: invert}
+#   - {min:  6,  max:  7, action: follow}
+#   - {min:  8,  max: 10, action: invert}
+
+rules:
+  - {min: -10, max: 10, action: invert}

@@ -205,3 +205,12 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Generated pipeline artifacts
+*.html
+*.xlsx
+*.pkl
+plots/
+log/
+backtest/
+group_stats/

@@ -1,0 +1,25 @@
+sources:
+  - name: all_providers
+    db_dir: C:\Users\Alkor\gd\db_rss
+    log_dir: C:\Users\Alkor\gd\db_rss\log
+    db_remote: /home/user/rss_scraper/db_data/
+    log_remote: /home/user/rss_scraper/log/
+    log_pattern: rss_scraper_all_providers_to_db_month_msk*.log
+    db_file_pattern: "rss_news_{year}_{month:02d}.db"
+    provider_column: provider
+    date_column: date
+
+  # Отключено: сервер больше не собирает отдельный поток investing,
+  # все провайдеры (включая investing) идут через all_providers.
+  # - name: investing
+  #   db_dir: C:\Users\Alkor\gd\db_rss_investing
+  #   log_dir: C:\Users\Alkor\gd\db_rss_investing\log
+  #   db_remote: /home/user/rss_scraper/db_rss_investing/
+  #   log_remote: /home/user/rss_scraper/log/
+  #   log_pattern: rss_scraper_investing_to_db_month_msk*.log
+  #   db_file_pattern: "rss_news_investing_{year}_{month:02d}.db"
+  #   provider_column: null
+  #   provider_fixed: investing
+  #   date_column: date
+
+remote_host: root@109.172.46.10
