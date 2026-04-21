@@ -35,7 +35,8 @@ sentiment_gemma:
   backtest_date_to: '2027-01-01'
 
 sentiment_qwen:
-  sentiment_model: 'qwen2.5:14b'
+  # sentiment_model: 'qwen2.5:14b'
+  sentiment_model: 'qwen3:14b'
   sentiment_output_pkl: 'C:/Users/Alkor/VSCode/pj18_sentiment/{ticker_lc}/sentiment_qwen/sentiment_scores.pkl'
   predict_path: 'C:/Users/Alkor/gd/predict_ai_sentiment/{ticker_lc}_sentiment_qwen'
 

@@ -5,6 +5,7 @@ import pandas as pd
 from rts.sentiment_qwen.sentiment_analysis_qwen import (
     compute_content_hash,
     parse_sentiment_strict,
+    parse_ollama_processor_status,
     should_process_file,
 )
 
@@ -39,3 +40,12 @@ def test_should_process_file_uses_content_hash(tmp_path: Path):
 
     md_file.write_text("second version", encoding="utf-8")
     assert should_process_file(md_file, existing_df) is True
+
+
+def test_parse_ollama_processor_status_extracts_cpu_gpu_split():
+    output = """NAME         ID              SIZE     PROCESSOR          CONTEXT    UNTIL
+qwen3:14b    bdbd181c33f2    10 GB    11%/89% CPU/GPU    4096       4 minutes from now
+"""
+
+    assert parse_ollama_processor_status(output, "qwen3:14b") == "11%/89% CPU/GPU"
+    assert parse_ollama_processor_status(output, "qwen2.5:14b") == "not loaded"

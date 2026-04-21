@@ -20,6 +20,7 @@ import math
 import pickle
 import re
 import sqlite3
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -159,6 +160,35 @@ def extract_date_from_path(path: Path) -> Optional[str]:
     """Извлекает дату формата YYYY-MM-DD из пути к markdown-файлу."""
     match = re.search(r"(\d{4}-\d{2}-\d{2})", str(path))
     return match.group(1) if match else None
+
+
+def parse_ollama_processor_status(ps_output: str, model: str) -> str:
+    """Извлекает CPU/GPU-размещение модели из вывода `ollama ps`."""
+    processor_pattern = re.compile(r"((?:\d+%/\d+%\s+CPU/GPU)|(?:\d+%\s+(?:CPU|GPU)))\s+\d+")
+    for line in ps_output.splitlines():
+        if not line.strip().startswith(model):
+            continue
+        match = processor_pattern.search(line)
+        if match:
+            return match.group(1)
+    return "not loaded"
+
+
+def get_ollama_processor_status(model: str) -> str:
+    """Возвращает CPU/GPU-размещение модели из `ollama ps` без остановки пайплайна при ошибке."""
+    try:
+        completed = subprocess.run(
+            ["ollama", "ps"],
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=10,
+        )
+    except Exception as exc:
+        return f"unavailable ({exc.__class__.__name__})"
+    return parse_ollama_processor_status(completed.stdout, model)
 
 
 def run_ollama(model: str, prompt: str, keepalive: Optional[str] = None, timeout: int = 600) -> str:
@@ -343,7 +373,14 @@ def main(
             logging.info("[%s] Skipping unchanged file: %s", ticker, md_file.name)
             continue
 
-        logging.info("[%s] Processing file: %s", ticker, md_file.name)
+        processor_status = get_ollama_processor_status(model)
+        logging.info(
+            "[%s] Processing file: %s | model=%s | processor=%s",
+            ticker,
+            md_file.name,
+            model,
+            processor_status,
+        )
         news_text = read_markdown(md_file)
         prompt = build_prompt(ticker, prompt_template, news_text)
         prompt_tokens = warn_if_token_limit_exceeded(prompt, token_limit, md_file.name)
