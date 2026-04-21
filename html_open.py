@@ -6,6 +6,11 @@
 - `rts/sentiment_qwen/plots/sentiment_backtest.html`
 - `rts/sentiment_qwen/plots/sentiment_backtest_qs.html`
 - `rts/combine/plots/sentiment_compare.html`
+- `mix/sentiment_gemma/plots/sentiment_backtest.html`
+- `mix/sentiment_gemma/plots/sentiment_backtest_qs.html`
+- `mix/sentiment_qwen/plots/sentiment_backtest.html`
+- `mix/sentiment_qwen/plots/sentiment_backtest_qs.html`
+- `mix/combine/plots/sentiment_compare.html`
 
 Открывает найденные файлы в одном новом окне Chrome в фиксированном порядке.
 """
@@ -23,6 +28,11 @@ HTML_REPORTS = [
     ROOT / "rts" / "sentiment_qwen" / "plots" / "sentiment_backtest.html",
     ROOT / "rts" / "sentiment_qwen" / "plots" / "sentiment_backtest_qs.html",
     ROOT / "rts" / "combine" / "plots" / "sentiment_compare.html",
+    ROOT / "mix" / "sentiment_gemma" / "plots" / "sentiment_backtest.html",
+    ROOT / "mix" / "sentiment_gemma" / "plots" / "sentiment_backtest_qs.html",
+    ROOT / "mix" / "sentiment_qwen" / "plots" / "sentiment_backtest.html",
+    ROOT / "mix" / "sentiment_qwen" / "plots" / "sentiment_backtest_qs.html",
+    ROOT / "mix" / "combine" / "plots" / "sentiment_compare.html",
 ]
 
 

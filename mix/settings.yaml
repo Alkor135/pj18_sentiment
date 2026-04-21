@@ -1,0 +1,49 @@
+# mix/settings.yaml
+# Конфигурация тикера MIX для sentiment pipeline.
+
+common:
+  ticker: 'MIX'
+  ticker_lc: 'mix'
+  ticker_close: 'MXM6'
+  ticker_open: 'MXM6'
+  quantity_test: 1
+  notional_capital: 105000
+
+  provider: 'investing_prime_interfax'
+
+  time_start: '21:00:00'
+  time_end: '20:59:59'
+  num_mds: 200
+  num_dbs: 8
+  start_date_download_minutes: '2025-06-24'
+
+  md_path: 'C:/Users/Alkor/gd/md_rss_all_oil_gaz'
+  db_news_dir: 'C:/Users/Alkor/gd/db_rss'
+  path_db_minute: 'C:/Users/Alkor/gd/data_quote_db/{ticker}_futures_minute_2025.db'
+  path_db_day: 'C:/Users/Alkor/gd/data_quote_db/{ticker}_futures_day_2025_21-00.db'
+  quik_csv_path: 'C:/Users/Alkor/VSCode/pj18_sentiment/trade/quik_export/minutes.csv'
+
+sentiment_gemma:
+  sentiment_model: 'gemma3:12b'
+  sentiment_output_pkl: 'C:/Users/Alkor/VSCode/pj18_sentiment/{ticker_lc}/sentiment_gemma/sentiment_scores.pkl'
+  predict_path: 'C:/Users/Alkor/gd/predict_ai_sentiment/{ticker_lc}_sentiment_gemma'
+
+  stats_date_from: '2025-09-01'
+  stats_date_to: '2027-01-01'
+
+  backtest_date_from: '2025-09-01'
+  backtest_date_to: '2027-01-01'
+
+sentiment_qwen:
+  sentiment_model: 'qwen2.5:14b'
+  sentiment_output_pkl: 'C:/Users/Alkor/VSCode/pj18_sentiment/{ticker_lc}/sentiment_qwen/sentiment_scores.pkl'
+  predict_path: 'C:/Users/Alkor/gd/predict_ai_sentiment/{ticker_lc}_sentiment_qwen'
+
+  stats_date_from: '2025-09-01'
+  stats_date_to: '2027-01-01'
+
+  backtest_date_from: '2025-09-01'
+  backtest_date_to: '2027-01-01'
+
+combined:
+  predict_path: 'C:/Users/Alkor/gd/predict_ai_sentiment/{ticker_lc}_combined'
