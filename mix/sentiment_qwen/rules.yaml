@@ -10,14 +10,6 @@
 #
 # Ниже — стартовая конфигурация для qwen2.5:14b.
 
-# rules:
-#   - {min: -10, max: -6, action: follow}
-#   - {min: -5,  max: -3, action: invert}
-#   - {min: -2,  max:  2, action: follow}
-#   - {min:  3,  max:  5, action: invert}
-#   - {min:  6,  max:  7, action: follow}
-#   - {min:  8,  max: 10, action: invert}
-
 # rules:  # qwen2.5:14b
 #   - {min: -10, max: -3, action: follow}
 #   - {min:  -2, max: 10, action: invert}

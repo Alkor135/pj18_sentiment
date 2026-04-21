@@ -29,6 +29,7 @@ common:
 
 sentiment_gemma:  # Конфигурация для sentiment стратегии (используется в sentiment_group_stats.py, sentiment_backtest.py, sentiment_to_predict.py)
   sentiment_model: 'gemma3:12b'  # Модель для анализа сентимента, например 'gemma3:12b'
+  use_cache: true  # Использовать PKL-кэш и пропускать md-файлы с неизмененным content_hash
   sentiment_output_pkl: 'C:/Users/Alkor/VSCode/pj18_sentiment/{ticker_lc}/sentiment_gemma/sentiment_scores.pkl'  # Файл для сохранения рассчитанных сентимент-скороров (используется в sentiment_to_predict.py)
   predict_path: 'C:/Users/Alkor/gd/predict_ai_sentiment/{ticker_lc}_sentiment_gemma'  # Путь для сохранения предсказаний sentiment модели (sentiment_to_predict.py)
 
@@ -41,8 +42,9 @@ sentiment_gemma:  # Конфигурация для sentiment стратегии
   backtest_date_to: '2027-01-01'  # Дата окончания тестового периода для sentiment_backtest.py (формат 'YYYY-MM-DD')
 
 sentiment_qwen:  # Конфигурация для sentiment стратегии (используется в sentiment_group_stats.py, sentiment_backtest.py, sentiment_to_predict.py)
-  # sentiment_model: 'qwen2.5:14b'  # Модель для анализа сентимента, например 'qwen2.5:14b' или 'qwen2.5:32b'
-  sentiment_model: 'qwen3:14b'  # Модель для анализа сентимента, например 'qwen2.5:14b' или 'qwen2.5:32b'
+  sentiment_model: 'qwen2.5:14b'  # Модель для анализа сентимента, например 'qwen2.5:14b' или 'qwen2.5:32b'
+  # sentiment_model: 'qwen3:14b'  # Модель для анализа сентимента, например 'qwen2.5:14b' или 'qwen2.5:32b'
+  use_cache: true  # Использовать PKL-кэш и пропускать md-файлы с неизмененным content_hash
   sentiment_output_pkl: 'C:/Users/Alkor/VSCode/pj18_sentiment/{ticker_lc}/sentiment_qwen/sentiment_scores.pkl'  # Файл для сохранения рассчитанных сентимент-скороров (используется в sentiment_to_predict.py)
   predict_path: 'C:/Users/Alkor/gd/predict_ai_sentiment/{ticker_lc}_sentiment_qwen'  # Путь для сохранения предсказаний sentiment модели (sentiment_to_predict.py)
 

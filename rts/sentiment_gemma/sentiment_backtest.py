@@ -17,7 +17,9 @@ P/L каждой сделки считается по `next_body`:
 from __future__ import annotations
 
 import pickle
+import re
 from datetime import date
+from html import escape
 from pathlib import Path
 from typing import Optional
 
@@ -50,6 +52,9 @@ VALID_ACTIONS = {"follow", "invert", "skip"}
 def resolve_sentiment_pkl(settings: dict) -> Path:
     """Возвращает абсолютный путь к PKL-файлу с sentiment-оценками."""
     sentiment_path = Path(settings.get("sentiment_output_pkl", "sentiment_scores.pkl"))
+    model = str(settings.get("sentiment_model", "model"))
+    model_slug = re.sub(r"[^A-Za-z0-9._-]+", "_", model).strip("_") or "model"
+    sentiment_path = sentiment_path.with_name(f"{sentiment_path.stem}_{model_slug}{sentiment_path.suffix}")
     return sentiment_path if sentiment_path.is_absolute() else TICKER_DIR / sentiment_path
 
 
@@ -291,6 +296,10 @@ def build_report(result: pd.DataFrame, ticker: str, model_name: str, output_html
         f"PF: {profit_factor:.2f} | RF: {recovery_factor:.2f} | "
         f"Sharpe: {sharpe:.2f} | MaxDD: {max_dd:,.0f}"
     )
+    test_period_text = (
+        "Период тестирования: "
+        f"{df['source_date'].min():%Y-%m-%d} - {df['source_date'].max():%Y-%m-%d}"
+    )
 
     # ── Графики ───────────────────────────────────────────────────────────
     fig = make_subplots(
@@ -426,10 +435,11 @@ def build_report(result: pd.DataFrame, ticker: str, model_name: str, output_html
 
     title = f"{ticker} | {model_name} | sentiment backtest — правила: {rules_path.name}"
     fig.update_layout(
-        height=2200,
+        height=2240,
         width=1500,
-        title_text=f"{title}<br><sub>{stats_text}</sub>",
+        title_text=f"{title}<br><sub>{test_period_text}</sub><br><sub>{stats_text}</sub>",
         title_x=0.5,
+        margin=dict(t=140),
         showlegend=True,
         legend=dict(orientation="h", yanchor="top", y=-0.05, xanchor="center", x=0.5),
         template="plotly_white",
@@ -607,8 +617,19 @@ def build_qs_report(result: pd.DataFrame, ticker: str, model_name: str, output_h
     returns = df.set_index("source_date")["pnl"] / notional_capital
     returns.index.name = None
     returns = returns.sort_index()
+    report_title = f"{ticker} | {model_name} | sentiment backtest (QuantStats)"
     qs.reports.html(returns, benchmark=None, output=str(output_html),
-                    title=f"{ticker} | {model_name} | sentiment backtest (QuantStats)")
+                    title=report_title)
+    _replace_html_title(output_html, report_title)
+
+
+def _replace_html_title(output_html: Path, title: str) -> None:
+    html = output_html.read_text(encoding="utf-8")
+    title_tag = f"<title>{escape(title, quote=False)}</title>"
+    html, count = re.subn(r"<title>.*?</title>", title_tag, html, count=1, flags=re.IGNORECASE | re.DOTALL)
+    if count == 0:
+        html = html.replace("</head>", f"{title_tag}\n</head>", 1)
+    output_html.write_text(html, encoding="utf-8")
 
 
 @app.command()

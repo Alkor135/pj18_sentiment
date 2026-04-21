@@ -19,6 +19,7 @@
 """
 
 import pickle
+import re
 from datetime import date
 from pathlib import Path
 from typing import Optional
@@ -33,6 +34,9 @@ TICKER_DIR = Path(__file__).resolve().parents[1]
 def resolve_sentiment_pkl(settings: dict) -> Path:
     """Возвращает абсолютный путь к PKL-файлу с sentiment-оценками Qwen."""
     sentiment_path = Path(settings.get("sentiment_output_pkl", "sentiment_scores.pkl"))
+    model = str(settings.get("sentiment_model", "model"))
+    model_slug = re.sub(r"[^A-Za-z0-9._-]+", "_", model).strip("_") or "model"
+    sentiment_path = sentiment_path.with_name(f"{sentiment_path.stem}_{model_slug}{sentiment_path.suffix}")
     return sentiment_path if sentiment_path.is_absolute() else TICKER_DIR / sentiment_path
 
 

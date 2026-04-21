@@ -35,7 +35,7 @@
 #     "Текст новости:\n\n{news_text}\n\n"
 #     "Верни только одно число от -10 до +10 без пояснений."
 # )
-rules:  # 
+rules:  # gemma3:12b
   - {min: -10, max: -4, action: follow}
   - {min: -3,  max:  3, action: invert}
   - {min:  4,  max:  4, action: follow}

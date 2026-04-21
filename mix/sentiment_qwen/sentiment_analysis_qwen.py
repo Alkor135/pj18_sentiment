@@ -7,7 +7,6 @@
 
 Дополнительно скрипт:
 - пересчитывает новые и измененные markdown-файлы по `content_hash`;
-- пересчитывает самую свежую дату, чтобы не держать неполные данные;
 - добавляет рыночные признаки из дневной SQLite-базы котировок;
 - сохраняет `raw_response` для последующего аудита качества ответов модели.
 """
@@ -219,6 +218,26 @@ def load_existing_results(path: Path) -> pd.DataFrame:
         return pd.DataFrame(pickle.load(file_obj))
 
 
+def resolve_model_output_pkl(base_path: Path, model: str) -> Path:
+    """Добавляет к имени PKL безопасный суффикс модели."""
+    model_slug = re.sub(r"[^A-Za-z0-9._-]+", "_", model).strip("_") or "model"
+    return base_path.with_name(f"{base_path.stem}_{model_slug}{base_path.suffix}")
+
+
+def migrate_legacy_model_pkl(legacy_path: Path, model_path: Path, model: str) -> None:
+    """Копирует старый общий PKL в модельный файл, если он содержит только текущую модель."""
+    if model_path.exists() or not legacy_path.exists() or legacy_path == model_path:
+        return
+    legacy_df = load_existing_results(legacy_path)
+    if legacy_df.empty or "model" not in legacy_df.columns:
+        return
+    legacy_models = set(legacy_df["model"].dropna().astype(str))
+    if legacy_models != {str(model)}:
+        return
+    save_results(model_path, legacy_df)
+    logging.info("Migrated legacy PKL for model %s: %s -> %s", model, legacy_path, model_path)
+
+
 def should_process_file(md_file: Path, existing_df: pd.DataFrame) -> bool:
     """Определяет, нужно ли пересчитывать файл по наличию и content_hash."""
     if existing_df.empty:
@@ -230,19 +249,6 @@ def should_process_file(md_file: Path, existing_df: pd.DataFrame) -> bool:
     current_hash = compute_content_hash(md_file)
     stored_hash = matches.iloc[-1].get("content_hash")
     return stored_hash != current_hash
-
-
-def drop_latest_date(existing_df: pd.DataFrame) -> pd.DataFrame:
-    """Удаляет самую свежую дату из старых результатов для безопасного пересчета."""
-    if existing_df.empty or "source_date" not in existing_df.columns:
-        return existing_df
-    max_date = existing_df["source_date"].max()
-    if not max_date:
-        return existing_df
-    before = len(existing_df)
-    trimmed = existing_df[existing_df["source_date"] != max_date].reset_index(drop=True)
-    logging.info("Удалена последняя запись за %s (%s -> %s строк) для пересчета.", max_date, before, len(trimmed))
-    return trimmed
 
 
 def attach_market_features(df: pd.DataFrame, quotes_path: Path) -> pd.DataFrame:
@@ -329,7 +335,11 @@ def main(
     keepalive: str = typer.Option("5m", help="Удерживать модель Ollama загруженной между запросами."),
     token_limit: int = typer.Option(DEFAULT_TOKEN_LIMIT, help="Порог токенов для предупреждения о длинном prompt."),
     prompt_template: str = typer.Option(DEFAULT_PROMPT_TEMPLATE, help="Шаблон промпта для модели."),
-    resume: bool = typer.Option(True, help="Пропускать уже обработанные и неизмененные файлы."),
+    use_cache: Optional[bool] = typer.Option(
+        None,
+        "--use-cache/--no-use-cache",
+        help="Использовать PKL-кэш и пропускать неизмененные файлы. Если не задано, берется из settings.yaml.",
+    ),
     verbose: bool = typer.Option(False, help="Включить подробный лог."),
 ) -> None:
     """Запускает полный пайплайн расчета sentiment-оценок для Qwen."""
@@ -341,12 +351,21 @@ def main(
         model = settings.get("sentiment_model", "qwen2.5:14b")
     logging.info("Sentiment model: %s", model)
 
+    if not isinstance(use_cache, bool):
+        use_cache = bool(settings.get("use_cache", True))
+    logging.info("Use cache: %s", use_cache)
+
     md_path = Path(settings.get("md_path", "."))
     sentiment_output = Path(settings.get("sentiment_output_pkl", "sentiment_scores.pkl"))
+    legacy_output_pkl = sentiment_output if output_pkl is None else None
     if output_pkl is None:
-        output_pkl = sentiment_output
+        output_pkl = resolve_model_output_pkl(sentiment_output, model)
     if not output_pkl.is_absolute():
         output_pkl = TICKER_DIR / output_pkl
+    if legacy_output_pkl is not None and not legacy_output_pkl.is_absolute():
+        legacy_output_pkl = TICKER_DIR / legacy_output_pkl
+    if use_cache and legacy_output_pkl is not None:
+        migrate_legacy_model_pkl(legacy_output_pkl, output_pkl, model)
 
     if not md_path.exists():
         raise typer.BadParameter(f"Папка markdown-файлов не найдена: {md_path}")
@@ -358,9 +377,7 @@ def main(
 
     logging.info("Found %s markdown files in %s", len(files), md_path)
 
-    existing_df = load_existing_results(output_pkl) if resume else pd.DataFrame()
-    if resume:
-        existing_df = drop_latest_date(existing_df)
+    existing_df = load_existing_results(output_pkl) if use_cache else pd.DataFrame()
 
     rows_by_path: dict[str, dict] = {}
     if not existing_df.empty:
@@ -369,7 +386,7 @@ def main(
 
     for md_file in files:
         md_file_path = str(md_file.resolve())
-        if resume and not should_process_file(md_file, existing_df):
+        if use_cache and not should_process_file(md_file, existing_df):
             logging.info("[%s] Skipping unchanged file: %s", ticker, md_file.name)
             continue
 

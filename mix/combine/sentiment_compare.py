@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+from html import escape
 from pathlib import Path
 
 import numpy as np
@@ -20,14 +21,53 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import typer
+import yaml
 
 TICKER_DIR = Path(__file__).resolve().parents[1]
 
 GEMMA_XLSX = TICKER_DIR / "sentiment_gemma" / "backtest" / "sentiment_backtest_results.xlsx"
 QWEN_XLSX = TICKER_DIR / "sentiment_qwen" / "backtest" / "sentiment_backtest_results.xlsx"
 OUTPUT_HTML = Path(__file__).resolve().parent / "plots" / "sentiment_compare.html"
+SETTINGS_YAML = TICKER_DIR / "settings.yaml"
 
 app = typer.Typer(help="Сравнение sentiment_gemma и sentiment_qwen по результатам backtest.")
+
+
+def load_report_labels(settings_path: Path = SETTINGS_YAML) -> dict[str, str]:
+    """Читает ticker и модели sentiment-стратегий для подписей отчёта."""
+    raw = yaml.safe_load(settings_path.read_text(encoding="utf-8")) or {}
+    common = raw.get("common") or {}
+    gemma = raw.get("sentiment_gemma") or {}
+    qwen = raw.get("sentiment_qwen") or {}
+    return {
+        "ticker": str(common.get("ticker", TICKER_DIR.name.upper())),
+        "gemma_model": str(gemma.get("sentiment_model", "gemma")),
+        "qwen_model": str(qwen.get("sentiment_model", "qwen")),
+    }
+
+
+def build_browser_title(settings_path: Path = SETTINGS_YAML) -> str:
+    """Формирует title вкладки браузера из ticker и моделей sentiment-стратегий."""
+    labels = load_report_labels(settings_path)
+    ticker = labels["ticker"]
+    gemma_model = labels["gemma_model"]
+    qwen_model = labels["qwen_model"]
+    return f"{ticker} | {gemma_model} | {qwen_model}"
+
+
+def build_page_heading(settings_path: Path = SETTINGS_YAML) -> str:
+    """Формирует видимый заголовок страницы с моделями рядом с названиями стратегий."""
+    labels = load_report_labels(settings_path)
+    return (
+        f"Сводная статистика Gemma ({labels['gemma_model']}) "
+        f"vs Qwen ({labels['qwen_model']}) — {labels['ticker']}"
+    )
+
+
+def build_test_period(merged: pd.DataFrame) -> str:
+    """Формирует период тестирования по фактическим датам сравнения."""
+    dates = pd.to_datetime(merged["date"])
+    return f"Период тестирования: {dates.min():%Y-%m-%d} - {dates.max():%Y-%m-%d}"
 
 
 def load_strategy_xlsx(path: Path, pnl_column_name: str) -> pd.DataFrame:
@@ -131,7 +171,7 @@ def calc_stats(pnl: pd.Series, name: str) -> dict:
     }
 
 
-def build_compare_figure(merged: pd.DataFrame) -> go.Figure:
+def build_compare_figure(merged: pd.DataFrame, ticker: str) -> go.Figure:
     """Строит общий график equity для Gemma, Qwen и их комбинации."""
     fig_compare = go.Figure()
     fig_compare.add_trace(
@@ -166,7 +206,7 @@ def build_compare_figure(merged: pd.DataFrame) -> go.Figure:
     )
     fig_compare.update_layout(
         height=600,
-        title_text="Сравнение стратегий Gemma vs Qwen — RTS",
+        title_text=f"Сравнение стратегий Gemma vs Qwen — {ticker}",
         title_x=0.5,
         showlegend=True,
         legend=dict(orientation="h", yanchor="top", y=-0.12, xanchor="center", x=0.5),
@@ -177,7 +217,7 @@ def build_compare_figure(merged: pd.DataFrame) -> go.Figure:
     return fig_compare
 
 
-def build_combined_report_components(merged: pd.DataFrame) -> tuple[go.Figure, go.Figure, go.Figure]:
+def build_combined_report_components(merged: pd.DataFrame, ticker: str) -> tuple[go.Figure, go.Figure, go.Figure]:
     """Строит графики и таблицы для подробного отчёта по комбинированной стратегии."""
     pl = merged["pnl_combined"].astype(float)
     cum = pl.cumsum()
@@ -340,7 +380,7 @@ def build_combined_report_components(merged: pd.DataFrame) -> tuple[go.Figure, g
     fig.update_layout(
         height=1400,
         width=1500,
-        title_text=f"Комбинированная стратегия Gemma + Qwen — RTS<br><sub>{stats_text}</sub>",
+        title_text=f"Комбинированная стратегия Gemma + Qwen — {ticker}<br><sub>{stats_text}</sub>",
         title_x=0.5,
         showlegend=True,
         legend=dict(orientation="h", yanchor="top", y=-0.03, xanchor="center", x=0.5),
@@ -416,7 +456,7 @@ def build_combined_report_components(merged: pd.DataFrame) -> tuple[go.Figure, g
         )
     )
     fig_stats.update_layout(
-        title_text="<b>Комбинация Gemma + Qwen — RTS: статистика стратегии</b>",
+        title_text=f"<b>Комбинация Gemma + Qwen — {ticker}: статистика стратегии</b>",
         title_x=0.5,
         title_font_size=18,
         height=32 + num_rows * 26 + 80,
@@ -494,7 +534,7 @@ def build_combined_report_components(merged: pd.DataFrame) -> tuple[go.Figure, g
         )
     )
     fig_table.update_layout(
-        title_text="<b>Комбинация Gemma + Qwen — RTS: ключевые коэффициенты</b>",
+        title_text=f"<b>Комбинация Gemma + Qwen — {ticker}: ключевые коэффициенты</b>",
         title_x=0.5,
         title_font_size=18,
         height=560,
@@ -517,12 +557,25 @@ def build_stats_table_html(merged: pd.DataFrame) -> str:
     return stats.to_html(index=False, classes="stats-table", border=0)
 
 
-def write_html_report(output_html: Path, stats_html: str, fig_compare: go.Figure, fig: go.Figure, fig_stats: go.Figure, fig_table: go.Figure) -> None:
+def write_html_report(
+    output_html: Path,
+    stats_html: str,
+    fig_compare: go.Figure,
+    fig: go.Figure,
+    fig_stats: go.Figure,
+    fig_table: go.Figure,
+    browser_title: str,
+    page_heading: str,
+    test_period: str,
+) -> None:
     """Сохраняет итоговый HTML-отчёт со сводной таблицей и интерактивными графиками."""
     output_html.parent.mkdir(parents=True, exist_ok=True)
+    escaped_title = escape(browser_title, quote=False)
+    escaped_heading = escape(page_heading, quote=False)
+    escaped_period = escape(test_period, quote=False)
     with output_html.open("w", encoding="utf-8") as file_obj:
         file_obj.write("<!DOCTYPE html>\n<html><head><meta charset='utf-8'>\n")
-        file_obj.write("<title>Сравнение sentiment_gemma и sentiment_qwen — RTS</title>\n")
+        file_obj.write(f"<title>{escaped_title}</title>\n")
         file_obj.write("<style>\n")
         file_obj.write("body { font-family: Arial, sans-serif; margin: 20px; background: #fafafa; }\n")
         file_obj.write(".stats-table { border-collapse: collapse; margin: 20px auto; font-size: 14px; }\n")
@@ -530,7 +583,8 @@ def write_html_report(output_html: Path, stats_html: str, fig_compare: go.Figure
         file_obj.write(".stats-table td { padding: 6px 16px; border-bottom: 1px solid #ddd; text-align: center; }\n")
         file_obj.write(".stats-table tr:hover { background: #e3f2fd; }\n")
         file_obj.write("</style>\n</head><body>\n")
-        file_obj.write("<h2 style='text-align:center;'>Сводная статистика Gemma vs Qwen — RTS</h2>\n")
+        file_obj.write(f"<h2 style='text-align:center;'>{escaped_heading}</h2>\n")
+        file_obj.write(f"<p style='text-align:center; margin-top:-8px;'>{escaped_period}</p>\n")
         file_obj.write(stats_html)
         file_obj.write(fig_compare.to_html(include_plotlyjs="cdn", full_html=False))
         file_obj.write("\n<hr style='margin:30px 0; border:1px solid #ccc'>\n")
@@ -567,9 +621,21 @@ def main(
         raise typer.Exit(code=1)
 
     stats_html = build_stats_table_html(merged)
-    fig_compare = build_compare_figure(merged)
-    fig, fig_stats, fig_table = build_combined_report_components(merged)
-    write_html_report(output_html, stats_html, fig_compare, fig, fig_stats, fig_table)
+    labels = load_report_labels()
+    ticker = labels["ticker"]
+    fig_compare = build_compare_figure(merged, ticker)
+    fig, fig_stats, fig_table = build_combined_report_components(merged, ticker)
+    write_html_report(
+        output_html,
+        stats_html,
+        fig_compare,
+        fig,
+        fig_stats,
+        fig_table,
+        build_browser_title(),
+        build_page_heading(),
+        build_test_period(merged),
+    )
 
     typer.echo(f"Отчёт сохранён: {output_html}")
 
