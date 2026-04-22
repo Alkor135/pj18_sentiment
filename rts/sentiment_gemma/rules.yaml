@@ -35,17 +35,17 @@
 #     "Текст новости:\n\n{news_text}\n\n"
 #     "Верни только одно число от -10 до +10 без пояснений."
 # )
-# rules:  # gemma3:12b RTX 4070
-#   - {min: -10, max: -6, action: follow}
-#   - {min: -5,  max: -3, action: invert}
-#   - {min: -2,  max:  2, action: follow}
-#   - {min:  3,  max:  5, action: invert}
-#   - {min:  6,  max:  7, action: follow}
-#   - {min:  8,  max: 10, action: invert}
-rules:  # gemma3:12b RTX 3090Ti
+rules:  # gemma3:12b RTX 4070
   - {min: -10, max: -6, action: follow}
   - {min: -5,  max: -3, action: invert}
   - {min: -2,  max:  2, action: follow}
-  - {min:  3,  max:  4, action: invert}
-  - {min:  5,  max:  6, action: follow}
-  - {min:  7,  max: 10, action: invert}
+  - {min:  3,  max:  5, action: invert}
+  - {min:  6,  max:  7, action: follow}
+  - {min:  8,  max: 10, action: invert}
+# rules:  # gemma3:12b RTX 3090Ti
+#   - {min: -10, max: -6, action: follow}
+#   - {min: -5,  max: -3, action: invert}
+#   - {min: -2,  max:  2, action: follow}
+#   - {min:  3,  max:  4, action: invert}
+#   - {min:  5,  max:  6, action: follow}
+#   - {min:  7,  max: 10, action: invert}

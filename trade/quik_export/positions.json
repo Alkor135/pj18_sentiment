@@ -1,0 +1,7 @@
+{
+  "exported_at": "2026-04-22 10:03:29",
+  "positions": [
+    {"trdaccid": "SPBFUT192yc", "sec_code": "MXM6", "totalnet": -2, "startnet": -2, "openbuys": 0, "opensells": 0, "varmargin": 200.0},
+    {"trdaccid": "SPBFUT192yc", "sec_code": "RIM6", "totalnet": -2, "startnet": -2, "openbuys": 0, "opensells": 0, "varmargin": -3043.26}
+  ]
+}

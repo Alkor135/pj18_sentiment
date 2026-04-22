@@ -21,16 +21,17 @@
 # rules:  # для qwen2.5:14b.
 #   - {min: -10, max: 10, action: invert}
 
-# rules:  # для qwen3:14b. RTX 4070
-#   - {min: -10, max: -7, action: follow}
-#   - {min: -6,  max: -2, action: invert}
-#   - {min: -1,  max:  1, action: follow}
-#   - {min:  2,  max:  3, action: invert}
-#   - {min:  4,  max:  5, action: follow}
-#   - {min:  6,  max: 10, action: invert}
-rules:  # для qwen3:14b. RTX 3090Ti
-  - {min: -10, max: -8, action: invert}
-  - {min:  -7, max: -7, action: follow}
-  - {min: -6,  max:  0, action: invert}
+rules:  # для qwen3:14b. RTX 4070
+  - {min: -10, max: -6, action: invert}
+  - {min: -5,  max: -5, action: follow}
+  - {min: -4,  max: -3, action: invert}
+  - {min: -2,  max: -2, action: follow}
+  - {min: -1,  max:  0, action: invert}
   - {min:  1,  max:  2, action: follow}
   - {min:  3,  max: 10, action: invert}
+# rules:  # для qwen3:14b. RTX 3090Ti
+#   - {min: -10, max: -8, action: invert}
+#   - {min:  -7, max: -7, action: follow}
+#   - {min: -6,  max:  0, action: invert}
+#   - {min:  1,  max:  2, action: follow}
+#   - {min:  3,  max: 10, action: invert}
