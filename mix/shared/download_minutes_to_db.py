@@ -133,6 +133,15 @@ def get_minute_candles(
     start = 0
     page_size = 500  # MOEX ISS API возвращает до 500 записей за запрос
 
+    # MOEX ISS отдаёт минутные свечи с задержкой ~15 мин: если till попадает
+    # в это окно, пустой ответ — штатная ситуация, не ошибка. Окно расширено
+    # до 20 мин с запасом; недостающие минуты добиваются из QUIK tail-fill.
+    try:
+        till_dt = datetime.fromisoformat(till_str)
+        within_delay_window = (datetime.now() - till_dt) < timedelta(minutes=20)
+    except ValueError:
+        within_delay_window = False
+
     while True:
         url = (
             f'https://iss.moex.com/iss/engines/futures/markets/forts/securities/'
@@ -144,7 +153,13 @@ def get_minute_candles(
 
         j = request_moex(session, url)
         if not j or 'candles' not in j or not j['candles'].get('data'):
-            logger.error(f"Нет минутных данных для {ticker} на {start_date}")
+            if within_delay_window:
+                logger.warning(
+                    f"Нет минутных данных для {ticker} на {start_date}: "
+                    f"окно till={till_str} внутри 20-мин зоны задержки MOEX, добьём из QUIK tail-fill"
+                )
+            else:
+                logger.error(f"Нет минутных данных для {ticker} на {start_date}")
             break
 
         data = [{k: r[i] for i, k in enumerate(j['candles']['columns'])} for r in j['candles']['data']]
@@ -158,7 +173,10 @@ def get_minute_candles(
             break
 
     if not all_data:
-        logger.error(f"Нет данных для {ticker} на {start_date}")
+        if within_delay_window:
+            logger.warning(f"Нет данных для {ticker} на {start_date} (окно в зоне задержки MOEX)")
+        else:
+            logger.error(f"Нет данных для {ticker} на {start_date}")
         return pd.DataFrame()
 
     df = pd.DataFrame(all_data)
