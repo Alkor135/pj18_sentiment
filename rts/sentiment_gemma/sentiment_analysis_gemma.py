@@ -251,13 +251,38 @@ def should_process_file(md_file: Path, existing_df: pd.DataFrame) -> bool:
     return stored_hash != current_hash
 
 
+def _resolve_with_gdrive_suffix(path: Path) -> Optional[Path]:
+    """Возвращает path или его дубликат вида `stem (N).ext` (Google Drive sync).
+
+    Why: на машинах с синхронизацией через Google Drive оригинальный файл
+    иногда отсутствует, а рядом лежит копия с суффиксом `(1)` / `(2)` и т.п.
+    How to apply: если path существует — возвращаем как есть; иначе ищем
+    в той же папке самый свежий файл с подходящим суффиксом.
+    """
+    if path.exists():
+        return path
+    parent = path.parent
+    if not parent.exists():
+        return None
+    candidates = sorted(
+        parent.glob(f"{path.stem} (*){path.suffix}"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    return candidates[0] if candidates else None
+
+
 def attach_market_features(df: pd.DataFrame, quotes_path: Path) -> pd.DataFrame:
     """Добавляет к sentiment-таблице рыночные признаки из SQLite-базы котировок."""
     if df.empty:
         return df
-    if not quotes_path.exists():
+    resolved = _resolve_with_gdrive_suffix(quotes_path)
+    if resolved is None:
         logging.warning("Файл котировок не найден: %s. Пропускаю добавление рыночных признаков.", quotes_path)
         return df
+    if resolved != quotes_path:
+        logging.warning("Файл котировок %s отсутствует, использую дубликат %s.", quotes_path.name, resolved.name)
+        quotes_path = resolved
 
     with sqlite3.connect(str(quotes_path)) as conn:
         quotes_df = pd.read_sql_query(
