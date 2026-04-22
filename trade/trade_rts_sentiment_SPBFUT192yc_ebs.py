@@ -30,7 +30,7 @@ import yaml
 _TRADE_DIR = Path(__file__).resolve().parent
 if str(_TRADE_DIR) not in sys.path:
     sys.path.insert(0, str(_TRADE_DIR))
-from read_positions import get_position, get_exported_at, is_export_fresh
+from read_positions import get_position, get_exported_at, is_export_fresh, has_yaml_override
 
 # --- Конфигурация из rts/settings.yaml (common + sentiment) ---
 ticker_lc = 'rts'
@@ -191,11 +191,16 @@ exported_at = get_exported_at()
 if exported_at:
     logger.info(f"LUA-экспорт: {exported_at}")
 
-# Защита от устаревшего positions.json: если override через positions.yaml нет,
-# а LUA-экспорт не обновлялся сегодня — останавливаем пайплайн (hard-fail).
+# Защита от устаревшего positions.json: если override через positions.yaml есть
+# не для всех используемых тикеров и LUA-экспорт не обновлялся сегодня —
+# останавливаем пайплайн (hard-fail). Пустой/закомментированный positions.yaml
+# не защищает: считается отсутствием override.
 # Причина: торговать по вчерашним позициям опаснее, чем пропустить день.
-_yaml_override = Path(__file__).parent / "state" / "positions.yaml"
-if not _yaml_override.exists() and not is_export_fresh(today):
+_all_overridden = (
+    has_yaml_override(trade_account, ticker_open)
+    and has_yaml_override(trade_account, ticker_close)
+)
+if not _all_overridden and not is_export_fresh(today):
     logger.error(
         f"positions.json не обновлялся сегодня ({today}). "
         f"Последний экспорт: {exported_at or 'n/a'}. "

@@ -89,6 +89,11 @@ def get_position(trdaccid: str, sec_code: str) -> int:
     return 0
 
 
+def has_yaml_override(trdaccid: str, sec_code: str) -> bool:
+    """True, если в positions.yaml есть раскомментированный totalnet для (trdaccid, sec_code)."""
+    return _read_yaml(trdaccid, sec_code) is not None
+
+
 def is_export_fresh(today: date) -> bool:
     """True, если positions.json экспортирован сегодня (по дате из exported_at).
 
