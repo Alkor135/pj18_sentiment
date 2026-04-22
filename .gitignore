@@ -215,3 +215,4 @@ plots/
 log/
 backtest/
 group_stats/
+trade/quik_export/*.csv
