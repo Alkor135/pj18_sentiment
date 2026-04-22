@@ -216,3 +216,4 @@ log/
 backtest/
 group_stats/
 trade/quik_export/*.csv
+trade/quik_export/positions.json
