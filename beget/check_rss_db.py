@@ -49,7 +49,7 @@ def main():
     today = datetime.now().strftime("%Y-%m-%d")
     now = datetime.now()
 
-    print(f"\n=== RSS DB check: {today} ===\n")
+    print(f"\n=== Проверка RSS-БД: {today} ===\n")
 
     grand_total = 0
     any_missing = False

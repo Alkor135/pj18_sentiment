@@ -1,5 +1,5 @@
 """
-Backtest sentiment-стратегии Qwen на основе `sentiment_scores.pkl`.
+Бэктест sentiment-стратегии Qwen на основе `sentiment_scores.pkl`.
 
 Скрипт читает `mix/settings.yaml` (секции `common` и `sentiment_qwen`),
 загружает `sentiment` и `next_body` из PKL, применяет правила из `rules.yaml`
@@ -43,7 +43,7 @@ def _parse_date(value) -> Optional[date]:
     return pd.to_datetime(str(value)).date()
 
 
-app = typer.Typer(help="Backtest sentiment_qwen-стратегии по данным из PKL.")
+app = typer.Typer(help="Бэктест sentiment_qwen-стратегии по данным из PKL.")
 
 
 VALID_ACTIONS = {"follow", "invert", "skip"}
@@ -126,12 +126,19 @@ def match_action(sentiment: float, rules: list[dict]) -> str:
     return "skip"
 
 
+def direction_for_action(sentiment: float, action: str) -> str:
+    """Возвращает направление: follow(0) = LONG, invert(0) = SHORT."""
+    if action == "follow":
+        return "LONG" if sentiment >= 0 else "SHORT"
+    return "SHORT" if sentiment >= 0 else "LONG"
+
+
 def build_backtest(
     aggregated: pd.DataFrame,
     quantity: int,
     rules: list[dict],
 ) -> pd.DataFrame:
-    """Строит сделки backtest по sentiment, rules и целевому движению next_body."""
+    """Строит сделки бэктеста по sentiment, rules и целевому движению next_body."""
     rows = []
     for source_date, row in aggregated.iterrows():
         sentiment = float(row["sentiment"])
@@ -140,13 +147,7 @@ def build_backtest(
         action = match_action(sentiment, rules)
         if action == "skip":
             continue
-        if sentiment == 0.0:
-            continue  # направление не определено
-
-        if action == "follow":
-            direction = "LONG" if sentiment > 0 else "SHORT"
-        else:  # invert
-            direction = "SHORT" if sentiment > 0 else "LONG"
+        direction = direction_for_action(sentiment, action)
 
         pnl = next_body * quantity if direction == "LONG" else -next_body * quantity
 
@@ -402,7 +403,7 @@ def build_report(result: pd.DataFrame, ticker: str, model_name: str, output_html
         go.Bar(
             x=action_stats["action"], y=action_stats["pnl"],
             marker_color=action_colors,
-            text=[f"{v:,.0f}<br>{t} сд.<br>win {w:.0f}%"
+            text=[f"{v:,.0f}<br>{t} сд.<br>приб. {w:.0f}%"
                   for v, t, w in zip(action_stats["pnl"], action_stats["trades"], action_stats["winrate"])],
             textposition="outside",
             name="P/L по action",
@@ -433,7 +434,7 @@ def build_report(result: pd.DataFrame, ticker: str, model_name: str, output_html
         row=5, col=2,
     )
 
-    title = f"{ticker} | {model_name} | sentiment backtest — правила: {rules_path.name}"
+    title = f"{ticker} | {model_name} | бэктест sentiment — правила: {rules_path.name}"
     fig.update_layout(
         height=2240,
         width=1500,
@@ -617,7 +618,7 @@ def build_qs_report(result: pd.DataFrame, ticker: str, model_name: str, output_h
     returns = df.set_index("source_date")["pnl"] / notional_capital
     returns.index.name = None
     returns = returns.sort_index()
-    report_title = f"{ticker} | {model_name} | sentiment backtest (QuantStats)"
+    report_title = f"{ticker} | {model_name} | бэктест sentiment (QuantStats)"
     qs.reports.html(returns, benchmark=None, output=str(output_html),
                     title=report_title)
     _replace_html_title(output_html, report_title)
@@ -654,7 +655,7 @@ def main(
         help="Верхняя граница окна (YYYY-MM-DD). Переопределяет settings.yaml:backtest_date_to.",
     ),
 ) -> None:
-    """Запускает полный backtest sentiment_qwen и сохраняет отчёты."""
+    """Запускает полный бэктест sentiment_qwen и сохраняет отчёты."""
     # --- Загрузка настроек из mix/settings.yaml (common + sentiment_qwen) ---
     _raw = yaml.safe_load((TICKER_DIR / "settings.yaml").read_text(encoding="utf-8"))
     settings = {**(_raw.get("common") or {}), **(_raw.get("sentiment_qwen") or {})}
@@ -711,7 +712,7 @@ def main(
     typer.echo(f"Правила: {rules_yaml}")
     typer.echo(f"Всего сделок: {len(result)}")
     typer.echo(f"Общий PnL: {result['pnl'].sum():.2f}")
-    typer.echo(f"Winrate: {(result['pnl'] > 0).mean() * 100:.1f}%")
+    typer.echo(f"Доля прибыльных сделок: {(result['pnl'] > 0).mean() * 100:.1f}%")
     typer.echo(f"Макс. просадка: {_max_drawdown(result):.2f}")
 
 

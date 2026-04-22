@@ -62,7 +62,7 @@ def main() -> None:
 
     print("Открываю HTML-отчёты:")
     for path in files:
-        print(f"[OPEN] {path}")
+        print(f"[ОТКРЫВАЮ] {path}")
 
 
 if __name__ == "__main__":

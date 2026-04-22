@@ -81,18 +81,18 @@ def run_rsync(command, log_file: Path, section):
 
     if code == 0:
 
-        print(GREEN + f"[{get_timestamp()}] OK: {section}" + RESET)
+        print(GREEN + f"[{get_timestamp()}] УСПЕШНО: {section}" + RESET)
 
     elif code == 23:
 
         print(YELLOW +
-              f"[{get_timestamp()}] Warning (code 23): {section}" +
+              f"[{get_timestamp()}] Предупреждение (код 23): {section}" +
               RESET)
 
     else:
 
         print(RED +
-              f"[{get_timestamp()}] ERROR {code}: {section}" +
+              f"[{get_timestamp()}] ОШИБКА {code}: {section}" +
               RESET)
 
         sys.exit(code)
@@ -114,11 +114,11 @@ def sync_files():
         log_file = log_dir / "sync.log"
 
         with open(log_file, "w", encoding="utf-8") as f:
-            f.write(f"[{get_timestamp()}] Sync started\n")
+            f.write(f"[{get_timestamp()}] Синхронизация начата\n")
 
-        # ---------- DB FILES ----------
+        # ---------- ФАЙЛЫ БД ----------
 
-        print(f"\n[{get_timestamp()}] Sync DB ({config['name']})")
+        print(f"\n[{get_timestamp()}] Синхронизация БД ({config['name']})")
 
         rsync_db_cmd = [
 
@@ -128,7 +128,7 @@ def sync_files():
             "-avz",
             "--progress",
 
-            # SQLite + Google Drive safe
+            # Безопасно для SQLite + Google Drive
             "--inplace",
             "--partial",
             "--size-only",
@@ -147,11 +147,11 @@ def sync_files():
         ]
 
         run_rsync(rsync_db_cmd, log_file,
-                  f"Sync DB: {config['name']}")
+                  f"Синхронизация БД: {config['name']}")
 
-        # ---------- LOG FILES ----------
+        # ---------- ЛОГ-ФАЙЛЫ ----------
 
-        print(f"\n[{get_timestamp()}] Sync LOG ({config['name']})")
+        print(f"\n[{get_timestamp()}] Синхронизация логов ({config['name']})")
 
         rsync_log_cmd = [
 
@@ -178,9 +178,9 @@ def sync_files():
 
         run_rsync(rsync_log_cmd,
                   log_file,
-                  f"Sync LOG: {config['name']}")
+                  f"Синхронизация логов: {config['name']}")
 
-    print("\n" + GREEN + "SYNC COMPLETE" + RESET)
+    print("\n" + GREEN + "СИНХРОНИЗАЦИЯ ЗАВЕРШЕНА" + RESET)
 
 
 if __name__ == "__main__":

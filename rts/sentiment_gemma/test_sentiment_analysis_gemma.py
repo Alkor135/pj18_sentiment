@@ -150,3 +150,45 @@ def test_main_uses_cache_setting_when_cli_option_is_omitted(tmp_path: Path, monk
     )
 
     assert calls["run_ollama"] == 1
+
+
+def test_main_retries_rows_with_missing_sentiment(tmp_path: Path, monkeypatch):
+    md_file = tmp_path / "2026-04-20_news.md"
+    md_file.write_text("first version", encoding="utf-8")
+    output_pkl = tmp_path / "sentiment_scores.pkl"
+
+    calls = {"run_ollama": 0}
+
+    def fake_run_ollama(**kwargs):
+        calls["run_ollama"] += 1
+        if calls["run_ollama"] == 1:
+            raise TimeoutError("temporary timeout")
+        return "7"
+
+    monkeypatch.setattr(
+        sag,
+        "load_settings",
+        lambda: {
+            "ticker": "RTS",
+            "md_path": str(tmp_path),
+            "sentiment_output_pkl": str(output_pkl),
+            "sentiment_model": "test-model",
+        },
+    )
+    monkeypatch.setattr(sag, "setup_logging", lambda *args, **kwargs: None)
+    monkeypatch.setattr(sag, "get_ollama_processor_status", lambda model: "not loaded")
+    monkeypatch.setattr(sag, "run_ollama", fake_run_ollama)
+
+    sag.main(
+        output_pkl=output_pkl,
+        model="test-model",
+        keepalive="5m",
+        token_limit=1000,
+        prompt_template="{news_text}",
+        use_cache=True,
+        max_retry_passes=2,
+    )
+
+    result_df = pd.read_pickle(output_pkl)
+    assert calls["run_ollama"] == 2
+    assert result_df["sentiment"].tolist() == [7]

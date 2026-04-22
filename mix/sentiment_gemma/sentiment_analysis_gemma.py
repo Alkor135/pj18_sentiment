@@ -124,7 +124,7 @@ def warn_if_token_limit_exceeded(prompt: str, token_limit: int, file_name: str) 
     prompt_tokens = get_token_count(prompt)
     if prompt_tokens > token_limit:
         logging.warning(
-            "Prompt для %s содержит %s токенов, превышает порог %s. Возможны обрезание или плохой ответ.",
+            "Промпт для %s содержит %s токенов, превышает порог %s. Возможны обрезание или плохой ответ.",
             file_name,
             prompt_tokens,
             token_limit,
@@ -190,7 +190,7 @@ def get_ollama_processor_status(model: str) -> str:
     return parse_ollama_processor_status(completed.stdout, model)
 
 
-def run_ollama(model: str, prompt: str, keepalive: Optional[str] = None, timeout: int = 600) -> str:
+def run_ollama(model: str, prompt: str, keepalive: Optional[str] = None, timeout: int = 60) -> str:
     """Вызывает Ollama HTTP API с детерминированными параметрами генерации."""
     payload = {
         "model": model,
@@ -235,7 +235,7 @@ def migrate_legacy_model_pkl(legacy_path: Path, model_path: Path, model: str) ->
     if legacy_models != {str(model)}:
         return
     save_results(model_path, legacy_df)
-    logging.info("Migrated legacy PKL for model %s: %s -> %s", model, legacy_path, model_path)
+    logging.info("Мигрирован старый PKL для модели %s: %s -> %s", model, legacy_path, model_path)
 
 
 def should_process_file(md_file: Path, existing_df: pd.DataFrame) -> bool:
@@ -256,7 +256,7 @@ def attach_market_features(df: pd.DataFrame, quotes_path: Path) -> pd.DataFrame:
     if df.empty:
         return df
     if not quotes_path.exists():
-        logging.warning("Файл котировок не найден: %s. Пропускаю добавление market features.", quotes_path)
+        logging.warning("Файл котировок не найден: %s. Пропускаю добавление рыночных признаков.", quotes_path)
         return df
 
     with sqlite3.connect(str(quotes_path)) as conn:
@@ -319,7 +319,19 @@ def save_results(path: Path, df: pd.DataFrame) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("wb") as file_obj:
         pickle.dump(df, file_obj)
-    logging.info("Saved %s records to %s", len(df), path)
+    logging.info("Сохранено записей: %s в %s", len(df), path)
+
+
+def has_failed_sentiments(df: pd.DataFrame) -> bool:
+    """Проверяет, остались ли записи без распарсенного sentiment."""
+    return not df.empty and "sentiment" in df.columns and df["sentiment"].isna().any()
+
+
+def drop_failed_sentiments(df: pd.DataFrame) -> pd.DataFrame:
+    """Удаляет записи с sentiment=None, чтобы следующий проход пересчитал их из markdown."""
+    if df.empty or "sentiment" not in df.columns:
+        return df
+    return df[df["sentiment"].notna()].reset_index(drop=True)
 
 
 @app.command()
@@ -340,6 +352,10 @@ def main(
         "--use-cache/--no-use-cache",
         help="Использовать PKL-кэш и пропускать неизмененные файлы. Если не задано, берется из settings.yaml.",
     ),
+    max_retry_passes: int = typer.Option(
+        3,
+        help="Сколько дополнительных проходов сделать для записей с sentiment=None.",
+    ),
     verbose: bool = typer.Option(False, help="Включить подробный лог."),
 ) -> None:
     """Запускает полный пайплайн расчета sentiment-оценок для Gemma."""
@@ -349,11 +365,15 @@ def main(
 
     if model is None:
         model = settings.get("sentiment_model", "gemma3:12b")
-    logging.info("Sentiment model: %s", model)
+    logging.info("Модель sentiment: %s", model)
 
     if not isinstance(use_cache, bool):
         use_cache = bool(settings.get("use_cache", True))
-    logging.info("Use cache: %s", use_cache)
+    logging.info("Использовать кэш: %s", use_cache)
+    if not isinstance(max_retry_passes, int):
+        max_retry_passes = 3
+    ollama_timeout = int(settings.get("ollama_timeout_seconds", 60))
+    logging.info("Таймаут Ollama: %s сек.", ollama_timeout)
 
     md_path = Path(settings.get("md_path", "."))
     sentiment_output = Path(settings.get("sentiment_output_pkl", "sentiment_scores.pkl"))
@@ -375,80 +395,99 @@ def main(
         typer.echo("В папке не найдено markdown-файлов.")
         raise typer.Exit(code=1)
 
-    logging.info("Found %s markdown files in %s", len(files), md_path)
+    logging.info("Найдено markdown-файлов: %s в %s", len(files), md_path)
 
-    existing_df = load_existing_results(output_pkl) if use_cache else pd.DataFrame()
+    df = pd.DataFrame()
+    retry_limit = max(0, max_retry_passes)
+    for retry_pass in range(retry_limit + 1):
+        if retry_pass:
+            logging.info("Повторный проход %s/%s для строк с sentiment=None", retry_pass, retry_limit)
 
-    rows_by_path: dict[str, dict] = {}
-    if not existing_df.empty:
-        for row in existing_df.to_dict("records"):
-            rows_by_path[row["file_path"]] = row
+        existing_df = load_existing_results(output_pkl) if use_cache else pd.DataFrame()
 
-    for md_file in files:
-        md_file_path = str(md_file.resolve())
-        if use_cache and not should_process_file(md_file, existing_df):
-            logging.info("[%s] Skipping unchanged file: %s", ticker, md_file.name)
-            continue
+        rows_by_path: dict[str, dict] = {}
+        if not existing_df.empty:
+            for row in existing_df.to_dict("records"):
+                rows_by_path[row["file_path"]] = row
 
-        processor_status = get_ollama_processor_status(model)
-        logging.info(
-            "[%s] Processing file: %s | model=%s | processor=%s",
-            ticker,
-            md_file.name,
-            model,
-            processor_status,
+        for md_file in files:
+            md_file_path = str(md_file.resolve())
+            if use_cache and not should_process_file(md_file, existing_df):
+                logging.info("[%s] Пропуск неизменённого файла: %s", ticker, md_file.name)
+                continue
+
+            processor_status = get_ollama_processor_status(model)
+            logging.info(
+                "[%s] Обработка файла: %s | модель=%s | процессор=%s",
+                ticker,
+                md_file.name,
+                model,
+                processor_status,
+            )
+            news_text = read_markdown(md_file)
+            prompt = build_prompt(ticker, prompt_template, news_text)
+            prompt_tokens = warn_if_token_limit_exceeded(prompt, token_limit, md_file.name)
+            content_hash = compute_content_hash(md_file)
+
+            try:
+                raw_response = run_ollama(model=model, prompt=prompt, keepalive=keepalive, timeout=ollama_timeout)
+                sentiment = parse_sentiment_strict(raw_response)
+            except Exception as exc:
+                logging.error("Ошибка обработки %s: %s", md_file.name, exc)
+                raw_response = str(exc)
+                sentiment = None
+
+            rows_by_path[md_file_path] = {
+                "file_path": md_file_path,
+                "content_hash": content_hash,
+                "source_date": extract_date_from_path(md_file),
+                "ticker": ticker,
+                "model": model,
+                "prompt": prompt,
+                "prompt_tokens": prompt_tokens,
+                "raw_response": raw_response,
+                "sentiment": sentiment,
+                "processed_at": datetime.now(timezone.utc),
+            }
+
+            logging.info(
+                "[%s] Результат %s: sentiment=%s, prompt_tokens=%s",
+                ticker,
+                md_file.name,
+                sentiment,
+                prompt_tokens,
+            )
+
+        df = pd.DataFrame(rows_by_path.values())
+
+        if not df.empty and "source_date" in df.columns:
+            before = len(df)
+            df = (
+                df.sort_values(["source_date", "processed_at"], kind="stable")
+                .drop_duplicates(subset="source_date", keep="last")
+                .reset_index(drop=True)
+            )
+            if len(df) < before:
+                logging.info("Дедуп по source_date: %s -> %s строк", before, len(df))
+
+        path_db_day_str = settings.get("path_db_day", "")
+        if path_db_day_str:
+            df = attach_market_features(df, Path(path_db_day_str))
+
+        save_results(output_pkl, df)
+        if not has_failed_sentiments(df):
+            break
+
+        failed_count = int(df["sentiment"].isna().sum())
+        cleaned_df = drop_failed_sentiments(df)
+        save_results(output_pkl, cleaned_df)
+        logging.warning(
+            "Удалено строк с sentiment=None перед повторным проходом: %s. Они будут пересчитаны из markdown.",
+            failed_count,
         )
-        news_text = read_markdown(md_file)
-        prompt = build_prompt(ticker, prompt_template, news_text)
-        prompt_tokens = warn_if_token_limit_exceeded(prompt, token_limit, md_file.name)
-        content_hash = compute_content_hash(md_file)
-
-        try:
-            raw_response = run_ollama(model=model, prompt=prompt, keepalive=keepalive)
-            sentiment = parse_sentiment_strict(raw_response)
-        except Exception as exc:
-            logging.error("Error processing %s: %s", md_file.name, exc)
-            raw_response = str(exc)
-            sentiment = None
-
-        rows_by_path[md_file_path] = {
-            "file_path": md_file_path,
-            "content_hash": content_hash,
-            "source_date": extract_date_from_path(md_file),
-            "ticker": ticker,
-            "model": model,
-            "prompt": prompt,
-            "prompt_tokens": prompt_tokens,
-            "raw_response": raw_response,
-            "sentiment": sentiment,
-            "processed_at": datetime.now(timezone.utc),
-        }
-
-        logging.info(
-            "[%s] Result %s: sentiment=%s, prompt_tokens=%s",
-            ticker,
-            md_file.name,
-            sentiment,
-            prompt_tokens,
-        )
-
-    df = pd.DataFrame(rows_by_path.values())
-
-    if not df.empty and "source_date" in df.columns:
-        before = len(df)
-        df = (
-            df.sort_values(["source_date", "processed_at"], kind="stable")
-            .drop_duplicates(subset="source_date", keep="last")
-            .reset_index(drop=True)
-        )
-        if len(df) < before:
-            logging.info("Дедуп по source_date: %s -> %s строк", before, len(df))
-
-    path_db_day_str = settings.get("path_db_day", "")
-    if path_db_day_str:
-        df = attach_market_features(df, Path(path_db_day_str))
-
-    save_results(output_pkl, df)
+        if retry_pass >= retry_limit:
+            df = cleaned_df
+            logging.error("Достигнут лимит повторных проходов; строк для пересчёта в следующем запуске: %s.", failed_count)
     typer.echo(f"Готово: {len(df)} записей сохранено в {output_pkl}")
 
     console_cols = [

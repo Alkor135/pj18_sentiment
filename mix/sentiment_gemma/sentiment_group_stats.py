@@ -4,9 +4,8 @@
 Скрипт читает `mix/settings.yaml` (секции `common` и `sentiment_gemma`),
 загружает `sentiment_scores.pkl`, берёт из него `sentiment` и `next_body`
 и моделирует базовую follow-стратегию:
-- `LONG`, если `sentiment > 0`;
+- `LONG`, если `sentiment >= 0`;
 - `SHORT`, если `sentiment < 0`;
-- пропуск сделки, если `sentiment == 0`.
 
 Для каждого значения sentiment скрипт считает:
 - `count_pos` — количество прибыльных сделок;
@@ -90,10 +89,8 @@ def build_follow_trades(aggregated: pd.DataFrame, quantity: int) -> pd.DataFrame
     rows = []
     for source_date, row in aggregated.iterrows():
         sentiment = float(row["sentiment"])
-        if sentiment == 0.0:
-            continue
         next_body = float(row["next_body"])
-        direction = "LONG" if sentiment > 0 else "SHORT"
+        direction = "LONG" if sentiment >= 0 else "SHORT"
         pnl = next_body * quantity if direction == "LONG" else -next_body * quantity
         rows.append(
             {
@@ -119,7 +116,7 @@ def group_by_sentiment(trades: pd.DataFrame) -> pd.DataFrame:
         )
         .reset_index()
     )
-    full = pd.DataFrame({"sentiment": [float(s) for s in range(-10, 11) if s != 0]})
+    full = pd.DataFrame({"sentiment": [float(s) for s in range(-10, 11)]})
     grouped = full.merge(grouped, on="sentiment", how="left").fillna(
         {"count_pos": 0, "count_neg": 0, "total_pnl": 0.0, "trades": 0}
     )
@@ -179,7 +176,7 @@ def main(
 
     trades = build_follow_trades(aggregated, quantity)
     if trades.empty:
-        typer.echo("Нет торгуемых дней (все sentiment == 0?).")
+        typer.echo("Нет торгуемых дней после фильтрации периода.")
         raise typer.Exit(code=1)
 
     grouped = group_by_sentiment(trades)

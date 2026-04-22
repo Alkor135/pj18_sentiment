@@ -1,4 +1,4 @@
-"""Сравнивает результаты backtest двух sentiment-стратегий: Gemma и Qwen.
+"""Сравнивает результаты бэктеста двух sentiment-стратегий: Gemma и Qwen.
 
 Скрипт читает два XLSX-файла с результатами backtest:
 - `mix/sentiment_gemma/backtest/sentiment_backtest_results.xlsx`
@@ -73,7 +73,7 @@ def build_test_period(merged: pd.DataFrame) -> str:
 def load_strategy_xlsx(path: Path, pnl_column_name: str) -> pd.DataFrame:
     """Загружает XLSX стратегии, валидирует колонки и нормализует данные по датам."""
     if not path.exists():
-        raise typer.BadParameter(f"Файл backtest XLSX не найден: {path}")
+        raise typer.BadParameter(f"Файл XLSX с бэктестом не найден: {path}")
 
     df = pd.read_excel(path)
     required = {"source_date", "pnl"}
@@ -600,11 +600,11 @@ def write_html_report(
 def main(
     gemma_xlsx: Path = typer.Option(
         GEMMA_XLSX,
-        help="XLSX с результатами backtest стратегии Gemma.",
+        help="XLSX с результатами бэктеста стратегии Gemma.",
     ),
     qwen_xlsx: Path = typer.Option(
         QWEN_XLSX,
-        help="XLSX с результатами backtest стратегии Qwen.",
+        help="XLSX с результатами бэктеста стратегии Qwen.",
     ),
     output_html: Path = typer.Option(
         OUTPUT_HTML,

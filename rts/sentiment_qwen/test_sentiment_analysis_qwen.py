@@ -153,6 +153,106 @@ def test_main_uses_cache_setting_when_cli_option_is_omitted(tmp_path: Path, monk
     assert calls["run_ollama"] == 1
 
 
+def test_main_retries_rows_with_missing_sentiment(tmp_path: Path, monkeypatch):
+    md_file = tmp_path / "2026-04-20_news.md"
+    md_file.write_text("first version", encoding="utf-8")
+    output_pkl = tmp_path / "sentiment_scores.pkl"
+
+    calls = {"run_ollama": 0}
+
+    def fake_run_ollama(**kwargs):
+        calls["run_ollama"] += 1
+        if calls["run_ollama"] == 1:
+            raise TimeoutError("temporary timeout")
+        return "7"
+
+    monkeypatch.setattr(
+        saq,
+        "load_settings",
+        lambda: {
+            "ticker": "RTS",
+            "md_path": str(tmp_path),
+            "sentiment_output_pkl": str(output_pkl),
+            "sentiment_model": "test-model",
+        },
+    )
+    monkeypatch.setattr(saq, "setup_logging", lambda *args, **kwargs: None)
+    monkeypatch.setattr(saq, "get_ollama_processor_status", lambda model: "not loaded")
+    monkeypatch.setattr(saq, "run_ollama", fake_run_ollama)
+
+    saq.main(
+        output_pkl=output_pkl,
+        model="test-model",
+        keepalive="5m",
+        token_limit=1000,
+        prompt_template="{news_text}",
+        use_cache=True,
+        max_retry_passes=2,
+    )
+
+    result_df = pd.read_pickle(output_pkl)
+    assert calls["run_ollama"] == 2
+    assert result_df["sentiment"].tolist() == [7]
+
+
+def test_main_uses_ollama_timeout_from_settings(tmp_path: Path, monkeypatch):
+    md_file = tmp_path / "2026-04-20_news.md"
+    md_file.write_text("first version", encoding="utf-8")
+    output_pkl = tmp_path / "sentiment_scores.pkl"
+    captured = {}
+
+    def fake_run_ollama(**kwargs):
+        captured["timeout"] = kwargs["timeout"]
+        return "7"
+
+    monkeypatch.setattr(
+        saq,
+        "load_settings",
+        lambda: {
+            "ticker": "RTS",
+            "md_path": str(tmp_path),
+            "sentiment_output_pkl": str(output_pkl),
+            "sentiment_model": "test-model",
+            "ollama_timeout_seconds": 17,
+        },
+    )
+    monkeypatch.setattr(saq, "setup_logging", lambda *args, **kwargs: None)
+    monkeypatch.setattr(saq, "get_ollama_processor_status", lambda model: "not loaded")
+    monkeypatch.setattr(saq, "run_ollama", fake_run_ollama)
+
+    saq.main(
+        output_pkl=output_pkl,
+        model="test-model",
+        keepalive="5m",
+        token_limit=1000,
+        prompt_template="{news_text}",
+        use_cache=True,
+        max_retry_passes=0,
+    )
+
+    assert captured["timeout"] == 17
+
+
+def test_run_ollama_uses_60_second_timeout_by_default(monkeypatch):
+    captured = {}
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"response": "7"}
+
+    def fake_post(url, json, timeout):
+        captured["timeout"] = timeout
+        return FakeResponse()
+
+    monkeypatch.setattr(saq.requests, "post", fake_post)
+
+    assert saq.run_ollama(model="test-model", prompt="news") == "7"
+    assert captured["timeout"] == 60
+
+
 def test_parse_ollama_processor_status_extracts_cpu_gpu_split():
     output = """NAME         ID              SIZE     PROCESSOR          CONTEXT    UNTIL
 qwen3:14b    bdbd181c33f2    10 GB    11%/89% CPU/GPU    4096       4 minutes from now
