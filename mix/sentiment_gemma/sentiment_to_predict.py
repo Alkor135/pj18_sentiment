@@ -290,7 +290,7 @@ def main() -> int:
                 logger.info(f"Файл {out_file} уже существует — пропуск.")
                 return 0
 
-        rules = load_rules(TICKER_DIR / "rules.yaml")
+        rules = load_rules(Path(__file__).resolve().parent / "rules.yaml")
 
         pkl_path = resolve_sentiment_pkl(settings)
 

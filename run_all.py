@@ -1,23 +1,23 @@
 """
-Оркестратор pj18 для ежедневного запуска из Windows Task Scheduler в 21:00:05.
+Оркестратор pj18 для тестового запуска полного sentiment-пайплайна.
 
-Обрабатывает два тикера (RTS и MIX). Каждый этап выполняется парой RTS → MIX,
-чтобы оба .tri попали в QUIK с минимальным зазором между ними:
+Обрабатывает два тикера (RTS и MIX). Подготовительные и sentiment-этапы
+выполняются для обоих тикеров:
   0) prepare.py (удаляет тестовые результаты, если запуск до 21:00)
   1) beget/sync_files.py
   2) shared: download_minutes_to_db → convert_minutes_to_days (RTS, MIX); create_markdown_files (только RTS — md_path общий)
-  3) embedding: create_embedding → embedding_backtest → embedding_to_predict (инверсия) (RTS, MIX)
-  4) sentiment: sentiment_analysis → sentiment_to_predict                                (RTS, MIX)
-  5) combine_predictions.py — согласованное голосование                                  (RTS, MIX)
-  6) trade/trade_rts_sentiment_SPBFUT192yc_ebs.py  +  trade/trade_mix_sentiment_SPBFUT192yc_ebs.py  ← встык, критично по времени
-  7) Аналитика (soft-fail): embedding_analysis, sentiment_group_stats, sentiment_backtest,
-     sentiment_compare — по обоим тикерам; sentiment_compare MIX идёт последним.
+  3) sentiment_analysis_gemma → sentiment_to_predict для gemma (RTS, MIX)
+  4) sentiment_analysis_qwen → sentiment_to_predict для qwen (RTS, MIX)
+  5) Тестовый trade-шаг: trade/trade_mix_sentiment_gemma_ebs.py пишет в test.tri
+     и ставит test-done маркер, который очищает prepare.py.
+  6) Аналитика (soft-fail): sentiment_group_stats, sentiment_backtest,
+     sentiment_compare — по обоим тикерам.
 
-Hard-fail (exit с кодом ошибки) до и включая trade-скрипты — чтобы при сбое на торговом
-этапе сразу поднять алерт. После trade-скриптов ошибки — warning, пайплайн продолжается.
+Hard-fail (exit с кодом ошибки) до и включая тестовый trade-шаг. После него
+ошибки аналитики — warning, пайплайн продолжается.
 
 Регистрация в планировщике Windows:
-  schtasks /Create /SC DAILY /ST 21:00:05 /TN "pj18_run_all" ^
+  schtasks /Create /SC DAILY /ST 21:00:05 /TN "pj18_run_all_test" ^
       /TR "C:\\Users\\Alkor\\VSCode\\pj18_sentiment\\.venv\\Scripts\\python.exe C:\\Users\\Alkor\\VSCode\\pj18_sentiment\\run_all.py"
 """
 
@@ -94,9 +94,8 @@ HARD_STEPS: list[Path] = [
     # ROOT / "rts" / "combine_predictions.py",
     # ROOT / "mix" / "combine_predictions.py",
 
-    # Этап 10: торговые скрипты встык — оба .tri попадают в QUIK с минимальным лагом
-    # RTS и MIX временно торгуются по sentiment-стратегии (combo-скрипты отключены):
-    # ROOT / "trade" / "trade_rts_combo_SPBFUT192yc_ebs.py",
+    # Этап 10: тестовый trade-шаг пишет в test.tri, реальный в input.tri. Менять надо руками торговых скриптах.
+    ROOT / "trade" / "trade_mix_sentiment_gemma_ebs.py",
     # ROOT / "trade" / "trade_mix_combo_SPBFUT192yc_ebs.py",
     # ROOT / "trade" / "trade_rts_sentiment_SPBFUT192yc_ebs.py",
     # ROOT / "trade" / "trade_mix_sentiment_SPBFUT192yc_ebs.py",
@@ -114,10 +113,24 @@ SOFT_STEPS: list[Path] = [
 
     ROOT / "rts" / "sentiment_qwen" / "sentiment_backtest.py",
     ROOT / "mix" / "sentiment_qwen" / "sentiment_backtest.py",
+
+    ROOT / "rts" / "combine" / "sentiment_compare.py",
+    ROOT / "mix" / "combine" / "sentiment_compare.py",
 ]
 
 
 def run(script: Path, hard: bool) -> int:
+    """Запускает один дочерний Python-скрипт и обрабатывает код возврата.
+
+    Args:
+        script: Абсолютный путь к этапу пайплайна.
+        hard: Если True, отсутствие скрипта, исключение или ненулевой код
+            завершает весь оркестратор. Если False, ошибка логируется как
+            soft-fail, а выполнение продолжается.
+
+    Returns:
+        Код возврата дочернего процесса или внутренний код ошибки оркестратора.
+    """
     if not script.exists():
         msg = f"СКРИПТ НЕ НАЙДЕН: {script}"
         logger.error(msg)
@@ -157,6 +170,12 @@ def run(script: Path, hard: bool) -> int:
 
 
 def main() -> int:
+    """Выполняет тестовый sentiment-пайплайн: hard-этапы, затем soft-аналитику.
+
+    Returns:
+        0, если все hard-этапы завершились успешно. При hard-fail процесс
+        завершается раньше через run().
+    """
     logger.info(f"=== pj18 run_all.py начат: {timestamp} ===")
     logger.info(f"Python: {sys.executable}")
     logger.info(f"ROOT: {ROOT}")
@@ -164,7 +183,7 @@ def main() -> int:
     for step in HARD_STEPS:
         run(step, hard=True)
 
-    logger.info("--- Торговля завершена, переходим к аналитике (soft-fail) ---")
+    logger.info("--- Тестовый trade-шаг завершён, переходим к аналитике (soft-fail) ---")
 
     for step in SOFT_STEPS:
         run(step, hard=False)

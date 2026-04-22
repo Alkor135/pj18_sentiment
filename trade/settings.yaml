@@ -21,7 +21,7 @@ accounts:
     trade_account: 'SPBFUT192yc'
     rts:
       quantity_close: 2
-      quantity_open: 2
+      quantity_open: 0
     mix:
       quantity_close: 2
-      quantity_open: 2
+      quantity_open: 4

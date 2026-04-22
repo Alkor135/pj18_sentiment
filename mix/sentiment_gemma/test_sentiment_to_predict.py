@@ -1,6 +1,9 @@
 import os
+import importlib
 from datetime import date, datetime
 from pathlib import Path
+
+import pytest
 
 from mix.sentiment_gemma.sentiment_to_predict import (
     load_settings,
@@ -61,3 +64,40 @@ def test_should_keep_existing_predict_when_file_is_after_time_start(tmp_path: Pa
     os.utime(out_file, (fresh_mtime, fresh_mtime))
 
     assert should_rewrite_existing_predict(out_file, date(2026, 4, 22), "21:00:00") is False
+
+
+@pytest.mark.parametrize(
+    "module_name",
+    [
+        "rts.sentiment_gemma.sentiment_to_predict",
+        "rts.sentiment_qwen.sentiment_to_predict",
+        "mix.sentiment_gemma.sentiment_to_predict",
+        "mix.sentiment_qwen.sentiment_to_predict",
+    ],
+)
+def test_main_reads_rules_yaml_from_own_model_directory(module_name: str, tmp_path: Path, monkeypatch):
+    module = importlib.import_module(module_name)
+    expected_rules_path = Path(module.__file__).resolve().parent / "rules.yaml"
+    captured = {}
+
+    monkeypatch.setattr(module, "setup_logging", lambda: type("Logger", (), {
+        "info": lambda self, *args, **kwargs: None,
+        "error": lambda self, *args, **kwargs: None,
+        "exception": lambda self, *args, **kwargs: None,
+    })())
+    monkeypatch.setattr(module, "load_settings", lambda path: {
+        "predict_path": str(tmp_path / "predict"),
+        "time_start": "21:00:00",
+        "sentiment_model": "test:model",
+        "sentiment_output_pkl": "sentiment_scores.pkl",
+    })
+    monkeypatch.setattr(module, "write_predict", lambda *args, **kwargs: None)
+
+    def capture_rules_path(path: Path):
+        captured["path"] = path
+        raise RuntimeError("stop after rules path capture")
+
+    monkeypatch.setattr(module, "load_rules", capture_rules_path)
+
+    assert module.main() == 0
+    assert captured["path"] == expected_rules_path

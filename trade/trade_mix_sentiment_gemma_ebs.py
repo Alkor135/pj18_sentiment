@@ -1,5 +1,5 @@
 """
-Исполнение сделок по фьючерсу MIX в QUIK через .tri-файлы — sentiment-стратегия.
+Исполнение сделок по фьючерсу MIX в QUIK через .tri-файлы — sentiment_gemma-стратегия.
 
 Target-state модель:
   1. Читает sentiment-прогноз текущего дня.
@@ -9,14 +9,14 @@ Target-state модель:
   5. При ролловере (ticker_close ≠ ticker_open): закрывает старый, открывает новый.
 
 Отличия от combo:
-  - читает секцию `sentiment` (predict_path → <ticker>_sentiment/);
-  - sentiment_to_predict.py НЕ создаёт файл на skip → отсутствие файла трактуется
+  - читает секцию `sentiment_gemma` (predict_path → <ticker>_sentiment_gemma/);
+  - sentiment_gemma/sentiment_to_predict.py НЕ создаёт файл на skip → отсутствие файла трактуется
     как «молчим»: выходим без изменений, текущая позиция сохраняется (поведение
     по договорённости с пользователем, отличается от combo).
 
 Поддержка ручного override позиций через trade/state/positions.yaml.
 Логирование с ротацией (3 файла). Защита от двойной записи через маркер
-state/{ticker}_{trade_account}_sentiment_{date}.done.
+state/{ticker}_{trade_account}_sentiment_gemma[_test]_{date}.done.
 """
 
 from pathlib import Path
@@ -36,7 +36,7 @@ from read_positions import get_position, get_exported_at, is_export_fresh
 ticker_lc = 'mix'
 TICKER_DIR = Path(__file__).resolve().parents[1] / ticker_lc
 _raw = yaml.safe_load((TICKER_DIR / "settings.yaml").read_text(encoding="utf-8"))
-cfg = {**(_raw.get("common") or {}), **(_raw.get("sentiment") or {})}
+cfg = {**(_raw.get("common") or {}), **(_raw.get("sentiment_gemma") or {})}
 _t = cfg.get("ticker", "")
 _tl = cfg.get("ticker_lc", _t.lower())
 for _k, _v in list(cfg.items()):
@@ -60,6 +60,7 @@ log_path = Path(__file__).parent / "log"
 trade_path = Path(account['trade_path'])
 trade_filepath = trade_path / "input.tri"
 # trade_filepath = trade_path / "test.tri"  # Для тестирования без реального QUIK (пишет в test.tri вместо input.tri)
+is_test_trade = trade_filepath.name == "test.tri"
 
 # Создание необходимых директорий
 trade_path.mkdir(parents=True, exist_ok=True)
@@ -74,7 +75,7 @@ current_filepath = predict_path / current_filename
 
 # --- Настройка логгирования ---
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-log_file = log_path / f'trade_{ticker_lc}_sentiment_{timestamp}.txt'
+log_file = log_path / f'trade_{ticker_lc}_sentiment_gemma_{timestamp}.txt'
 
 logging.basicConfig(
     level=logging.INFO,
@@ -98,7 +99,7 @@ def cleanup_old_logs(log_dir: Path, prefix: str, max_files: int = 3):
             except Exception as e:
                 logger.warning(f"Не удалось удалить {old_file}: {e}")
 
-cleanup_old_logs(log_path, prefix=f"trade_{ticker_lc}_sentiment")
+cleanup_old_logs(log_path, prefix=f"trade_{ticker_lc}_sentiment_gemma")
 
 # --- Вспомогательные функции ---
 def get_direction(filepath):
@@ -160,14 +161,15 @@ def create_trade_block(tr_id, ticker, action, quantity):
 
 # --- Основная логика ---
 # Защита от повторной записи: один тикер + одна дата + стратегия = один маркер
-done_marker = state_path / f"{ticker_lc}_{trade_account}_sentiment_{today.strftime('%Y-%m-%d')}.done"
+strategy_marker = "sentiment_gemma_test" if is_test_trade else "sentiment_gemma"
+done_marker = state_path / f"{ticker_lc}_{trade_account}_{strategy_marker}_{today.strftime('%Y-%m-%d')}.done"
 if done_marker.exists():
     logger.info(f"Маркер {done_marker.name} уже существует — транзакция за сегодня уже записана. Пропуск.\n")
     sys.exit(0)
 
 # Проверка наличия файла прогноза на сегодня.
 # Для sentiment отсутствие файла = «молчим»: оставляем текущую позицию без изменений
-# (в отличие от combo, где skip → target=0). Файла нет ⇒ sentiment_to_predict.py
+# (в отличие от combo, где skip → target=0). Файла нет ⇒ sentiment_gemma/sentiment_to_predict.py
 # намеренно его не создал (см. CLAUDE.md §3).
 if not current_filepath.exists() or current_filepath.stat().st_size == 0:
     logger.info(f"Файл {current_filepath} не существует или пуст. Sentiment молчит — позиция сохраняется, ордеры не формируются.\n")

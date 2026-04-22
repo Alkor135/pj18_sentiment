@@ -6,8 +6,9 @@
   - Файлы предсказаний за сегодня (gemma, qwen, combined) по RTS/MIX
   - Done-маркеры за сегодня в trade/state/*.done (защита от повторной записи)
 
-Если скрипт запущен после 21:00:00 — ничего сегодняшнего не трогает, чтобы
-защитить рабочие результаты официального ночного запуска (21:00:05).
+Если скрипт запущен после 21:00:00 — рабочие сегодняшние результаты не трогает,
+но удаляет сегодняшние test-done маркеры, чтобы тестовые прогоны не блокировали
+боевой запуск.
 
 В любом случае (до и после 21:00:00) выполняется housekeeping:
   - trade/state/*.done: хранится не более DONE_RETENTION_DAYS календарных дней
@@ -53,6 +54,11 @@ def parse_done_marker_date(path: Path) -> date | None:
         return datetime.strptime(date_str, "%Y-%m-%d").date()
     except ValueError:
         return None
+
+
+def is_test_done_marker(path: Path) -> bool:
+    """True для done-маркеров тестовых торговых запусков."""
+    return path.suffix == ".done" and "_test_" in f"_{path.stem}_"
 
 
 def get_done_markers_to_delete(
@@ -166,6 +172,11 @@ def main() -> int:
     is_before_cutoff = hour < cutoff_hour
 
     done_markers = list(STATE_DIR.glob("*.done"))
+    today_test_done_markers = [
+        path
+        for path in done_markers
+        if parse_done_marker_date(path) == now.date() and is_test_done_marker(path)
+    ]
     old_done_markers = get_done_markers_to_delete(
         done_markers,
         today=now.date(),
@@ -179,11 +190,11 @@ def main() -> int:
         )
 
     deleted_count = 0
-    for filepath in old_done_markers:
+    for filepath in old_done_markers + today_test_done_markers:
         if filepath.exists():
             try:
                 filepath.unlink()
-                logger.info(f"  Удалён старый done-маркер: {filepath}")
+                logger.info(f"  Удалён done-маркер: {filepath}")
                 deleted_count += 1
             except Exception as exc:
                 logger.warning(f"  Не удалось удалить {filepath}: {exc}")

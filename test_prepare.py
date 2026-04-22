@@ -63,3 +63,27 @@ def test_main_cleans_old_done_markers_after_cutoff(tmp_path, monkeypatch):
 
     assert prepare.main() == 0
     assert not old_marker.exists()
+
+
+def test_main_cleans_today_test_done_markers_after_cutoff(tmp_path, monkeypatch):
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls):
+            return cls(2026, 4, 22, 21, 0, 5)
+
+    log_dir = tmp_path / "log"
+    state_dir = tmp_path / "trade" / "state"
+    log_dir.mkdir()
+    state_dir.mkdir(parents=True)
+    test_marker = state_dir / "mix_SPBFUT192yc_sentiment_gemma_test_2026-04-22.done"
+    prod_marker = state_dir / "mix_SPBFUT192yc_sentiment_gemma_2026-04-22.done"
+    test_marker.touch()
+    prod_marker.touch()
+
+    monkeypatch.setattr(prepare, "datetime", FixedDateTime)
+    monkeypatch.setattr(prepare, "LOG_DIR", log_dir)
+    monkeypatch.setattr(prepare, "STATE_DIR", state_dir)
+
+    assert prepare.main() == 0
+    assert not test_marker.exists()
+    assert prod_marker.exists()

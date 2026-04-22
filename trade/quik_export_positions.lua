@@ -46,7 +46,7 @@
       PERIOD_MS — интервал экспорта в миллисекундах (3 600 000 = 1 час).
 ]]
 
-local OUT       = "C:\\Users\\Alkor\\VSCode\\pj17_combo_sentiment_embedding_trade\\trade\\quik_export\\positions.json"
+local OUT       = "C:\\Users\\Alkor\\VSCode\\pj18_sentiment\\trade\\quik_export\\positions.json"
 local OUT_TMP   = OUT .. ".tmp"
 local ACCOUNTS  = {"SPBFUT192yc", "SPBFUT16qg3"}
 local PERIOD_MS = 3600000   -- 1 час

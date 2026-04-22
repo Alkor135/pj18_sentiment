@@ -16,7 +16,7 @@
     ровно последние TAIL_BARS баров по каждому тикеру (не разрастается).
 ]]
 
-local OUT       = "C:\\Users\\Alkor\\VSCode\\pj17_combo_sentiment_embedding_trade\\trade\\quik_export\\minutes.csv"
+local OUT       = "C:\\Users\\Alkor\\VSCode\\pj18_sentiment\\trade\\quik_export\\minutes.csv"
 local OUT_TMP   = OUT .. ".tmp"
 local CLASS     = "SPBFUT"
 local TICKERS   = {"RIM6", "RIU6", "MXM6", "MXU6"}
