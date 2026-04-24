@@ -84,6 +84,12 @@ def _parse_date(value) -> Optional[date]:
     return pd.to_datetime(str(value)).date()
 
 
+def resolve_group_stats_output_xlsx(settings: dict, output_dir: Path) -> Path:
+    """Возвращает путь к итоговому XLSX-файлу групповой статистики."""
+    filename = str(settings.get("group_stats_output_xlsx", "sentiment_group_stats.xlsx"))
+    return output_dir / filename
+
+
 def build_follow_trades(aggregated: pd.DataFrame, quantity: int) -> pd.DataFrame:
     """Строит список сделок follow-стратегии с P/L, рассчитанным по next_body."""
     rows = []
@@ -181,11 +187,9 @@ def main(
 
     grouped = group_by_sentiment(trades)
 
-    actual_from = aggregated.index.min()
-    actual_to = aggregated.index.max()
     output_dir = Path(__file__).resolve().parent / "group_stats"
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_xlsx = output_dir / f"sentiment_group_stats_{actual_from}_{actual_to}.xlsx"
+    output_xlsx = resolve_group_stats_output_xlsx(settings, output_dir)
     grouped.to_excel(output_xlsx, index=False)
 
     period = f"{aggregated.index.min()} .. {aggregated.index.max()}"

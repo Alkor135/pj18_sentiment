@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 
-SCRIPT_PATH = Path("rts/sentiment_gemma/check_pkl.py")
+SCRIPT_PATH = Path(__file__).resolve().parents[1] / "check_pkl.py"
 
 
 def load_module():

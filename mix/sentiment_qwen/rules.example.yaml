@@ -14,18 +14,18 @@
 #   - {min: -10, max: -3, action: follow}
 #   - {min:  -2, max: 10, action: invert}
 
-rules:  # qwen3:14b RTX 4070
-  - {min: -10, max: -8, action: invert}
-  - {min: -7,  max: -6, action: follow}
-  - {min: -5,  max: -3, action: invert}
-  - {min: -2,  max:  0, action: follow}
-  - {min:  1,  max:  1, action: invert}
-  - {min:  2,  max:  2, action: follow}
-  - {min:  3,  max:  3, action: invert}
-  - {min:  4,  max:  4, action: follow}
-  - {min:  5,  max:  6, action: invert}
-  - {min:  7,  max:  7, action: follow}
-  - {min:  8,  max: 10, action: invert}
+# rules:  # qwen3:14b RTX 4070
+#   - {min: -10, max: -8, action: invert}
+#   - {min: -7,  max: -6, action: follow}
+#   - {min: -5,  max: -3, action: invert}
+#   - {min: -2,  max:  0, action: follow}
+#   - {min:  1,  max:  1, action: invert}
+#   - {min:  2,  max:  2, action: follow}
+#   - {min:  3,  max:  3, action: invert}
+#   - {min:  4,  max:  4, action: follow}
+#   - {min:  5,  max:  6, action: invert}
+#   - {min:  7,  max:  7, action: follow}
+#   - {min:  8,  max: 10, action: invert}
 # rules:  # qwen3:14b RTX 3090Ti
 #   - {min: -10, max: -8, action: invert}
 #   - {min: -7,  max: -7, action: follow}
@@ -38,4 +38,26 @@ rules:  # qwen3:14b RTX 4070
 #   - {min:  3,  max:  6, action: invert}
 #   - {min:  7,  max:  7, action: follow}
 #   - {min:  8,  max: 10, action: invert}
-  
+
+rules:
+  - {min: -10, max: -10, action: invert}
+  - {min: -9, max: -9, action: invert}
+  - {min: -8, max: -8, action: invert}
+  - {min: -7, max: -7, action: invert}
+  - {min: -6, max: -6, action: invert}
+  - {min: -5, max: -5, action: invert}
+  - {min: -4, max: -4, action: follow}
+  - {min: -3, max: -3, action: follow}
+  - {min: -2, max: -2, action: invert}
+  - {min: -1, max: -1, action: invert}
+  - {min: 0, max: 0, action: invert}
+  - {min: 1, max: 1, action: invert}
+  - {min: 2, max: 2, action: invert}
+  - {min: 3, max: 3, action: invert}
+  - {min: 4, max: 4, action: invert}
+  - {min: 5, max: 5, action: invert}
+  - {min: 6, max: 6, action: invert}
+  - {min: 7, max: 7, action: follow}
+  - {min: 8, max: 8, action: follow}
+  - {min: 9, max: 9, action: follow}
+  - {min: 10, max: 10, action: follow}
