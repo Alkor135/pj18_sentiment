@@ -147,9 +147,11 @@ def build_rules_recommendation(grouped: pd.DataFrame) -> list[dict[str, int | st
     ]
 
 
-def render_rules_yaml(rules: list[dict[str, int | str]]) -> str:
+def render_rules_yaml(
+    rules: list[dict[str, int | str]], ticker: str, sentiment_model: str
+) -> str:
     """Рендерит рекомендации в компактный YAML-формат."""
-    lines = ["rules:"]
+    lines = [f"rules:  # {ticker} {sentiment_model}"]
     for rule in rules:
         lines.append(
             f"  - {{min: {rule['min']}, max: {rule['max']}, action: {rule['action']}}}"
@@ -169,7 +171,11 @@ def main() -> None:
     rules = build_rules_recommendation(grouped)
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_yaml.write_text(render_rules_yaml(rules), encoding="utf-8")
+    ticker = str(settings.get("ticker", ""))
+    sentiment_model = str(settings.get("sentiment_model", ""))
+    output_yaml.write_text(
+        render_rules_yaml(rules, ticker, sentiment_model), encoding="utf-8"
+    )
 
     typer.echo(f"XLSX прочитан: {input_xlsx}")
     typer.echo(f"YAML сохранён: {output_yaml}")
