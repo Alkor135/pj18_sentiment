@@ -1,8 +1,14 @@
 from datetime import date
+from pathlib import Path
 
 import pandas as pd
 
-from rts.sentiment_qwen.sentiment_group_stats import build_follow_trades, group_by_sentiment, index_by_date
+from mix.sentiment_gemma.sentiment_group_stats import (
+    build_follow_trades,
+    group_by_sentiment,
+    index_by_date,
+    resolve_group_stats_output_xlsx,
+)
 
 
 def test_index_by_date_uses_next_body_column():
@@ -48,3 +54,14 @@ def test_build_follow_trades_treats_zero_as_long_and_groups_it():
     zero_row = grouped.loc[grouped["sentiment"] == 0.0].iloc[0]
     assert zero_row["trades"] == 1
     assert zero_row["total_pnl"] == 20.0
+
+
+def test_resolve_group_stats_output_xlsx_uses_settings_filename():
+    output_dir = Path("group_stats")
+
+    result = resolve_group_stats_output_xlsx(
+        {"group_stats_output_xlsx": "sentiment_group_stats.xlsx"},
+        output_dir,
+    )
+
+    assert result == output_dir / "sentiment_group_stats.xlsx"

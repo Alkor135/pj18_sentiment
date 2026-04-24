@@ -219,3 +219,6 @@ trade/quik_export/*.csv
 trade/quik_export/positions.json
 trade/state/*.done
 trade/quik_export/
+
+# Local per-machine sentiment rules
+rules.yaml

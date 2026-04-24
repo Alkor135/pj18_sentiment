@@ -61,6 +61,13 @@ HARD_STEPS: list[Path] = [
     ROOT / "rts" / "sentiment_qwen" / "sentiment_group_stats.py",
     ROOT / "mix" / "sentiment_gemma" / "sentiment_group_stats.py",
     ROOT / "mix" / "sentiment_qwen" / "sentiment_group_stats.py",
+
+    # Этап 5.1: рекомендации правил по group_stats
+    ROOT / "rts" / "sentiment_gemma" / "rules_recommendation.py",
+    ROOT / "rts" / "sentiment_qwen" / "rules_recommendation.py",
+    ROOT / "mix" / "sentiment_gemma" / "rules_recommendation.py",
+    ROOT / "mix" / "sentiment_qwen" / "rules_recommendation.py",
+
     # ROOT / "br" / "embedding" / "embedding_backtest.py",
     # ROOT / "gold" / "embedding" / "embedding_backtest.py",
     # ROOT / "ng" / "embedding" / "embedding_backtest.py",
