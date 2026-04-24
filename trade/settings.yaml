@@ -20,8 +20,8 @@ accounts:
     trade_path: 'C:/QUIK_VTB_2025_ЕБС/algotrade'
     trade_account: 'SPBFUT192yc'
     rts:
-      quantity_close: 2
+      quantity_close: 0
       quantity_open: 0
     mix:
-      quantity_close: 2
+      quantity_close: 4
       quantity_open: 4
